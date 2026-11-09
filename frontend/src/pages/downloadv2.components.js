@@ -1657,7 +1657,11 @@ export function DownloadV2ReverseDialog(props) {
                   store: vm$.ui.btn_reverse_rerun$,
                   attributes: { n: "download-reverse-rerun" },
                 },
-                ["重新反推"],
+                [
+                  computed(vm$.state.reverse_action_label, (label) =>
+                    label || "开始反推",
+                  ),
+                ],
               ),
             ],
           ),
@@ -1715,7 +1719,11 @@ export function DownloadV2TranscriptDialog(props) {
                   store: vm$.ui.btn_transcript_rerun$,
                   attributes: { n: "download-transcript-rerun" },
                 },
-                ["重新提取"],
+                [
+                  computed(vm$.state.transcript_action_label, (label) =>
+                    label || "开始提取",
+                  ),
+                ],
               ),
             ],
           ),

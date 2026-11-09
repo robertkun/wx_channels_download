@@ -579,7 +579,11 @@ function ContentTranscriptDialog(props) {
                   store: vm$.ui.btn_transcript_rerun$,
                   attributes: { n: "content-transcript-rerun" },
                 },
-                ["重新提取"],
+                [
+                  computed(vm$.state.transcript_action_label, (label) =>
+                    label || "开始提取",
+                  ),
+                ],
               ),
             ],
           ),
@@ -930,7 +934,11 @@ function ContentReverseDialog(props) {
                   store: vm$.ui.btn_reverse_rerun$,
                   attributes: { n: "content-reverse-rerun" },
                 },
-                ["重新反推"],
+                [
+                  computed(vm$.state.reverse_action_label, (label) =>
+                    label || "开始反推",
+                  ),
+                ],
               ),
             ],
           ),

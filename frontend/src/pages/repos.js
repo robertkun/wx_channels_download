@@ -9,7 +9,7 @@ function ReposPageView() {
     [
       Timeless.Webview({
         class: "repos-frame",
-        href: "http://127.0.0.1:2030/repos",
+        href: "/console/repos",
         attributes: {
           n: "repos-frame",
           title: "目录",

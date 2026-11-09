@@ -25,10 +25,8 @@ function is_download_open_external() {
 
 function task_console_origin() {
   const location = window.location || {};
-  const host = location.hostname || "127.0.0.1";
-  const wrapped = host.includes(":") ? `[${host}]` : host;
-  const protocol = location.protocol === "https:" ? "https:" : "http:";
-  return `${protocol}//${wrapped}:2030`;
+  const origin = location.origin || "http://127.0.0.1:2022";
+  return `${origin}/console`;
 }
 
 function task_record_files(raw) {
@@ -310,12 +308,14 @@ function DownloadV2Model(props = {}) {
   const clearing_tasks_ = ref(false);
   const transcript_jobs_ = refobj({});
   const transcript_title_ = ref("文案提取");
+  const transcript_action_label_ = ref("开始提取");
   const transcript_text_ = ref("");
   const transcript_message_ = ref("");
   const transcript_path_ = ref("");
   const transcript_task_id_ = ref("");
   const reverse_jobs_ = refobj({});
   const reverse_title_ = ref("视频反推");
+  const reverse_action_label_ = ref("开始反推");
   const reverse_text_ = ref("");
   const reverse_message_ = ref("");
   const reverse_path_ = ref("");
@@ -1073,8 +1073,13 @@ function DownloadV2Model(props = {}) {
     transcript_path_.as(media_path);
     if (!same) {
       transcript_text_.as("");
-      transcript_message_.as("点击「重新提取」开始识别口播。");
+      transcript_action_label_.as("开始提取");
+      transcript_message_.as("点击「开始提取」开始识别口播。");
       ui.btn_transcript_copy$.disable();
+    } else {
+      transcript_action_label_.as(
+        String(transcript_text_.value || "").trim() ? "重新提取" : "开始提取",
+      );
     }
     const ready =
       normalize_download_status(raw.status) === "done" && Boolean(media_path);
@@ -1083,8 +1088,7 @@ function DownloadV2Model(props = {}) {
     } else if (!media_path) {
       transcript_message_.as("这条任务没有可提取的本地音视频。");
     }
-    if (ready) ui.btn_transcript_rerun$.enable();
-    else ui.btn_transcript_rerun$.disable();
+    ui.btn_transcript_rerun$.disable();
     ui.transcriptDialog$.show();
     if (ready) show_saved_transcript(id, media_path);
     return true;
@@ -1102,7 +1106,8 @@ function DownloadV2Model(props = {}) {
       if (sequence !== transcript_sequence) return null;
       if (!response.ok) {
         transcript_text_.as("");
-        transcript_message_.as("点击「重新提取」开始识别口播。");
+        transcript_action_label_.as("开始提取");
+        transcript_message_.as("点击「开始提取」开始识别口播。");
         ui.btn_transcript_copy$.disable();
         ui.btn_transcript_rerun$.enable();
         return null;
@@ -1110,18 +1115,21 @@ function DownloadV2Model(props = {}) {
       const text = readable_transcript(await response.text());
       if (sequence !== transcript_sequence) return null;
       if (!text) {
-        transcript_message_.as("点击「重新提取」开始识别口播。");
+        transcript_action_label_.as("开始提取");
+        transcript_message_.as("点击「开始提取」开始识别口播。");
         ui.btn_transcript_copy$.disable();
         ui.btn_transcript_rerun$.enable();
         return null;
       }
       transcript_text_.as(text);
-      transcript_message_.as("已读取本地文案");
+      transcript_action_label_.as("重新提取");
+      transcript_message_.as("已读取本地文案。可以重新提取。");
       finish_transcript(sequence, id, "ready", true);
       return text;
     } catch (_error) {
       if (sequence !== transcript_sequence) return null;
-      transcript_message_.as("点击「重新提取」开始识别口播。");
+      transcript_action_label_.as("开始提取");
+      transcript_message_.as("点击「开始提取」开始识别口播。");
       ui.btn_transcript_rerun$.enable();
       return null;
     }
@@ -1132,6 +1140,7 @@ function DownloadV2Model(props = {}) {
     if (!id) return null;
     const task$ = downloader.get(id);
     const raw = task_snapshot(task$) || {};
+    const again = transcript_action_label_.value === "重新提取";
     return load_transcript(
       {
         ...raw,
@@ -1139,7 +1148,7 @@ function DownloadV2Model(props = {}) {
         name: transcript_title_.value,
         file_path: transcript_path_.value,
       },
-      true,
+      again,
     );
   }
 
@@ -1196,6 +1205,7 @@ function DownloadV2Model(props = {}) {
         throw new Error(payload.error || `文案提取失败（${response.status}）`);
       }
       transcript_text_.as(String(payload.text || ""));
+      transcript_action_label_.as("重新提取");
       transcript_message_.as(String(payload.message || "文案已就绪"));
       finish_transcript(sequence, id, "ready", true);
       return payload;
@@ -1203,6 +1213,7 @@ function DownloadV2Model(props = {}) {
       if (sequence !== transcript_sequence) return null;
       const message = error && error.message ? error.message : String(error);
       const offline = /Failed to fetch|NetworkError|Load failed/i.test(message);
+      transcript_action_label_.as("重新提取");
       transcript_message_.as(
         offline
           ? "任务服务没有在运行。文案提取需要本机任务页保持启动。"
@@ -1241,6 +1252,7 @@ function DownloadV2Model(props = {}) {
       reverse_message_.as(
         (payload && (payload.message || payload.error)) || "视频反推失败",
       );
+      reverse_action_label_.as("重新反推");
       set_reverse_job(id, "error");
       ui.btn_reverse_copy$.disable();
       ui.btn_reverse_open$.disable();
@@ -1258,6 +1270,7 @@ function DownloadV2Model(props = {}) {
     if (payload.status === "ready") {
       stop_reverse_poll();
       reverse_text_.as(String(payload.text || ""));
+      reverse_action_label_.as("重新反推");
       reverse_message_.as(payload.message || "视频反推完成");
       set_reverse_job(id, "ready");
       if (String(payload.text || "").trim()) ui.btn_reverse_copy$.enable();
@@ -1268,7 +1281,8 @@ function DownloadV2Model(props = {}) {
     }
     stop_reverse_poll();
     reverse_text_.as("");
-    reverse_message_.as(payload.message || "点击「重新反推」开始拆解这条视频。");
+    reverse_action_label_.as("开始反推");
+    reverse_message_.as(payload.message || "点击「开始反推」开始拆解这条视频。");
     set_reverse_job(id, "");
     ui.btn_reverse_copy$.disable();
     ui.btn_reverse_open$.disable();
@@ -1288,6 +1302,7 @@ function DownloadV2Model(props = {}) {
     } catch (_error) {
       if (sequence !== reverse_sequence) return null;
       stop_reverse_poll();
+      reverse_action_label_.as("重新反推");
       reverse_message_.as("任务服务没有在运行。视频反推需要本机任务页保持启动。");
       set_reverse_job(id, "error");
       ui.btn_reverse_rerun$.enable();
@@ -1352,7 +1367,41 @@ function DownloadV2Model(props = {}) {
           ? "任务服务没有在运行。视频反推需要本机任务页保持启动。"
           : message,
       );
+      reverse_action_label_.as("重新反推");
       set_reverse_job(id, "error");
+      ui.btn_reverse_rerun$.enable();
+      return null;
+    }
+  }
+
+  async function preview_reverse(id, media_path) {
+    const sequence = ++reverse_sequence;
+    reverse_path_.as(media_path);
+    reverse_action_label_.as("开始反推");
+    reverse_message_.as("点击「开始反推」开始拆解这条视频。");
+    try {
+      const lookup = await fetch(
+        `${task_console_origin()}/api/video-reverse?path=${encodeURIComponent(media_path)}`,
+      );
+      const found = await lookup.json().catch(() => ({}));
+      if (sequence !== reverse_sequence) return found;
+      if (
+        found &&
+        (found.status === "ready" ||
+          found.status === "running" ||
+          found.status === "error" ||
+          found.ok === false)
+      ) {
+        apply_reverse_status(found, sequence, id);
+        if (found.status === "running") watch_reverse(id);
+        return found;
+      }
+      ui.btn_reverse_rerun$.enable();
+      return found;
+    } catch (_error) {
+      if (sequence !== reverse_sequence) return null;
+      reverse_action_label_.as("开始反推");
+      reverse_message_.as("点击「开始反推」开始拆解这条视频。");
       ui.btn_reverse_rerun$.enable();
       return null;
     }
@@ -1362,19 +1411,26 @@ function DownloadV2Model(props = {}) {
     const raw = task_snapshot(task);
     const id = String(raw.id || "").trim();
     if (!id) return null;
+    if (reverse_jobs_.value[id] === "loading") {
+      ui.reverseDialog$.show();
+      if (!reverse_timer) watch_reverse(id);
+      return null;
+    }
     stop_reverse_poll();
     const title = String(raw.name || raw.title || "视频反推").trim() || "视频反推";
     reverse_task_id_.as(id);
     reverse_title_.as(title);
     reverse_text_.as("");
+    reverse_action_label_.as("开始反推");
+    reverse_message_.as("点击「开始反推」开始拆解这条视频。");
     ui.btn_reverse_copy$.disable();
     ui.btn_reverse_open$.disable();
+    ui.btn_reverse_rerun$.disable();
     ui.reverseDialog$.show();
     if (normalize_download_status(raw.status) !== "done") {
       reverse_path_.as("");
       reverse_message_.as("请等这条任务下载完成后再反推。");
       set_reverse_job(id, "empty");
-      ui.btn_reverse_rerun$.disable();
       return null;
     }
     const media_path = task_media_path(raw) || String(raw.file_path || "").trim();
@@ -1382,17 +1438,17 @@ function DownloadV2Model(props = {}) {
       reverse_path_.as("");
       reverse_message_.as("这条任务没有可反推的本地视频。");
       set_reverse_job(id, "empty");
-      ui.btn_reverse_rerun$.disable();
       return null;
     }
-    return begin_reverse(id, media_path, false);
+    return preview_reverse(id, media_path);
   }
 
   function rerun_reverse() {
     const id = String(reverse_task_id_.value || "").trim();
     const media_path = String(reverse_path_.value || "").trim();
     if (!id || !media_path) return null;
-    return begin_reverse(id, media_path, true);
+    const again = reverse_action_label_.value === "重新反推";
+    return begin_reverse(id, media_path, again);
   }
 
   function copy_reverse() {
@@ -2645,11 +2701,13 @@ function DownloadV2Model(props = {}) {
     transcript_title: transcript_title_,
     transcript_text: transcript_text_,
     transcript_message: transcript_message_,
+    transcript_action_label: transcript_action_label_,
     transcript_path: transcript_path_,
     reverse_jobs: reverse_jobs_,
     reverse_title: reverse_title_,
     reverse_text: reverse_text_,
     reverse_message: reverse_message_,
+    reverse_action_label: reverse_action_label_,
     white_model_jobs: white_model_jobs_,
     white_model_title: white_model_title_,
     white_model_message: white_model_message_,

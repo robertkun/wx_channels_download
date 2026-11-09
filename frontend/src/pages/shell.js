@@ -10,6 +10,18 @@ if (!Timeless) {
   throw new Error("应用无法启动：Timeless 运行时未加载");
 }
 
+function account_name() {
+  return (
+    sessionStorage.getItem("vf-auth-user") ||
+    localStorage.getItem("vf-auth-user") ||
+    "admin"
+  );
+}
+
+function account_initial() {
+  return account_name().slice(0, 1).toUpperCase();
+}
+
 export default function SiderLayoutView(props) {
   var model = ShellViewModel(props);
 
@@ -149,6 +161,77 @@ export default function SiderLayoutView(props) {
           attributes: { n: "app-content" },
         },
         [
+          View({ class: "app-account" }, [
+            Show({
+              when: model.state.account_open,
+              ok() {
+                return Button({
+                  store: model.ui.account_close_button$,
+                  class: "app-account__backdrop",
+                  attributes: { n: "app-account-backdrop", "aria-label": "关闭个人中心" },
+                });
+              },
+            }),
+            View({ class: "app-account__slot" }, [
+              Button(
+                {
+                  store: model.ui.account_button$,
+                  class: "app-account__trigger",
+                  attributes: {
+                    n: "app-account-action",
+                    type: "button",
+                    "aria-label": "个人中心",
+                  },
+                },
+                [
+                  View({ class: "app-account__avatar" }, [
+                    account_initial(),
+                  ]),
+                  View({ as: "span", class: "app-account__name" }, [
+                    account_name(),
+                  ]),
+                ],
+              ),
+              Show({
+                when: model.state.account_open,
+                ok() {
+                  return View(
+                    {
+                      class: "app-account__menu",
+                      attributes: { n: "app-account-menu" },
+                    },
+                    [
+                      View({ class: "app-account__menu-kicker" }, ["个人中心"]),
+                      View({ class: "app-account__profile" }, [
+                        View({ class: "app-account__avatar" }, [
+                          account_initial(),
+                        ]),
+                        View({ class: "app-account__profile-copy" }, [
+                          View({ class: "app-account__profile-name" }, [
+                            account_name(),
+                          ]),
+                          View({ class: "app-account__profile-hint" }, [
+                            "本机账号",
+                          ]),
+                        ]),
+                      ]),
+                      Button(
+                        {
+                          store: model.ui.logout_button$,
+                          class: "app-account__logout",
+                          attributes: {
+                            n: "app-logout-action",
+                            type: "button",
+                          },
+                        },
+                        ["退出登录"],
+                      ),
+                    ],
+                  );
+                },
+              }),
+            ]),
+          ]),
           Timeless.ui.KeepAliveSubViews({
             app: props.app,
             client: props.client,

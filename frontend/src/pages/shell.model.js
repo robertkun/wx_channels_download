@@ -629,6 +629,8 @@ export function ShellViewModel(props) {
     return result;
   }
 
+  const account_open_ = Timeless.ref(false);
+
   const ui = {
     settings_dialog$: new Timeless.vm.DialogCore({
       closeable: true,
@@ -640,6 +642,26 @@ export function ShellViewModel(props) {
         ui.settings_dialog$.show();
         settings_section_.as("certificate");
         return load_certificate();
+      },
+    }),
+    account_button$: new Timeless.vm.ButtonCore({
+      variant: "ghost",
+      onClick() {
+        account_open_.as(!account_open_.value);
+      },
+    }),
+    account_close_button$: new Timeless.vm.ButtonCore({
+      variant: "ghost",
+      onClick() {
+        account_open_.as(false);
+      },
+    }),
+    logout_button$: new Timeless.vm.ButtonCore({
+      variant: "ghost",
+      onClick() {
+        sessionStorage.removeItem("vf-auth-user");
+        localStorage.removeItem("vf-auth-user");
+        window.location.assign("/login");
       },
     }),
     certificate_menu_button$: new Timeless.vm.ButtonCore({
@@ -748,6 +770,7 @@ export function ShellViewModel(props) {
       certificate: certificate_,
       certificate_error: certificate_error_,
       certificate_loading: certificate_loading_,
+      account_open: account_open_,
       menu_items,
       settings_section: settings_section_,
       version,

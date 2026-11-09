@@ -9,7 +9,7 @@ function TasksPageView() {
     [
       Timeless.Webview({
         class: "tasks-frame",
-        href: "http://127.0.0.1:2030/",
+        href: "/console/",
         attributes: {
           n: "tasks-frame",
           title: "任务",
