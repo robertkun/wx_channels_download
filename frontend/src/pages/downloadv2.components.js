@@ -1632,6 +1632,18 @@ export function DownloadV2ReverseDialog(props) {
               ),
             ],
           ),
+          boolean_toggle({
+            checked: vm$.state.reverse_vlm,
+            label: "看图写分镜",
+            name: "download-reverse-vlm",
+          }),
+          View(
+            {
+              class: "dl-dialog-field-hint",
+              attributes: { n: "download-reverse-vlm-hint" },
+            },
+            ["默认关闭。勾选后会看关键帧并写出每个镜头的提示词，不勾选则只拆镜头和声音。"],
+          ),
           View(
             {
               class: "dl-page-transcript-actions",
@@ -2122,36 +2134,53 @@ export function DownloadV2RemakeDialog(props) {
             },
           }),
           View({ class: "remake-form" }, [
-            View({ class: "remake-form-label" }, ["模型"]),
-            View({ class: "white-model-detail" }, [
-              RemakeChoice({
-                current: vm$.state.remake_reference,
-                value: "mu-video",
-                label: "MU Video",
-                equals(value) {
-                  const model = value && value.model;
-                  return !model || (model !== "hailuo" && model !== "hailuo-2-3");
-                },
-                onPick: vm$.methods.pickRemakeModel,
-              }),
-              RemakeChoice({
-                current: vm$.state.remake_reference,
-                value: "hailuo-2-3",
-                label: "Hailuo 2.3",
-                equals(value) {
-                  return Boolean(value && value.model === "hailuo-2-3");
-                },
-                onPick: vm$.methods.pickRemakeModel,
-              }),
-              RemakeChoice({
-                current: vm$.state.remake_reference,
-                value: "hailuo",
-                label: "Hailuo H3",
-                equals(value) {
-                  return Boolean(value && value.model === "hailuo");
-                },
-                onPick: vm$.methods.pickRemakeModel,
-              }),
+            View({ class: "remake-form-label" }, ["厂商"]),
+            View({ class: "remake-vendor" }, [
+              View({ class: "remake-vendor-name" }, ["不鸣"]),
+              View({ class: "white-model-detail" }, [
+                RemakeChoice({
+                  current: vm$.state.remake_reference,
+                  value: "mu-video",
+                  label: "MU Video",
+                  equals(value) {
+                    const model = value && value.model;
+                    return !model || (model !== "hailuo" && model !== "hailuo-2-3" && model !== "buming-h3");
+                  },
+                  onPick: vm$.methods.pickRemakeModel,
+                }),
+                RemakeChoice({
+                  current: vm$.state.remake_reference,
+                  value: "hailuo-2-3",
+                  label: "Hailuo 2.3",
+                  equals(value) {
+                    return Boolean(value && value.model === "hailuo-2-3");
+                  },
+                  onPick: vm$.methods.pickRemakeModel,
+                }),
+                RemakeChoice({
+                  current: vm$.state.remake_reference,
+                  value: "buming-h3",
+                  label: "Hailuo H3",
+                  equals(value) {
+                    return Boolean(value && value.model === "buming-h3");
+                  },
+                  onPick: vm$.methods.pickRemakeModel,
+                }),
+              ]),
+            ]),
+            View({ class: "remake-vendor" }, [
+              View({ class: "remake-vendor-name" }, ["RunningHub"]),
+              View({ class: "white-model-detail" }, [
+                RemakeChoice({
+                  current: vm$.state.remake_reference,
+                  value: "hailuo",
+                  label: "Hailuo H3",
+                  equals(value) {
+                    return Boolean(value && value.model === "hailuo");
+                  },
+                  onPick: vm$.methods.pickRemakeModel,
+                }),
+              ]),
             ]),
             View({ class: "remake-form-label" }, ["参考视频"]),
             View({ class: "white-model-detail" }, [
@@ -2197,13 +2226,16 @@ export function DownloadV2RemakeDialog(props) {
             View({ class: "white-model-controls-hint" }, [
               computed(vm$.state.remake_reference, (value) => {
                 const selected = value && typeof value === "object" ? value : {};
+                if (selected.model === "buming-h3") {
+                  return "不鸣的 Hailuo H3。可以带参考视频和参考图，每段取前 5 秒。没有参考视频时，有参考图就作为首帧，否则按文字生成。";
+                }
                 if (selected.model === "hailuo-2-3") {
-                  return "Hailuo 2.3 不能上传参考视频。参考图从拉片里选，或自己上传。没选时按文字生成 6 秒，提示词不超过 2000 字。选了参考图就作为首帧，不再抽帧。";
+                  return "不鸣的 Hailuo 2.3 不能上传参考视频。参考图从拉片里选，或自己上传。没选时按文字生成 6 秒，提示词不超过 2000 字。选了参考图就作为首帧，不再抽帧。";
                 }
                 if (selected.model !== "hailuo") {
-                  return "MU Video 不能上传参考视频，价格更低。参考图从拉片里选，或自己上传。没选时按文字生成，提示词仍按原始视频抽帧来写。选了参考图就只用这张图，不再抽帧。";
+                  return "不鸣的 MU Video 不能上传参考视频。参考图从拉片里选，或自己上传。没选时按文字生成，提示词仍按原始视频抽帧来写。选了参考图就只用这张图，不再抽帧。";
                 }
-                const parts = ["没有参考图时，提示词按原始视频抽帧来写", "添加了参考图就按参考图来写，不再抽帧"];
+                const parts = ["RunningHub 的 Hailuo H3", "没有参考图时，提示词按原始视频抽帧来写", "添加了参考图就按参考图来写，不再抽帧"];
                 if (!selected.source) parts.push("不勾选时原片不会上传，仍可生成预览");
                 if (!selected.whiteReady) parts.push("白模生成后才能勾选");
                 else if (selected.white) parts.push("白模只额外对齐动作，不改这段解析");

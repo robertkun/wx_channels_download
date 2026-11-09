@@ -315,11 +315,24 @@
   color: var(--dm-color-text-secondary);
 }
 
-.content-delete-files {
+.content-delete-files,
+.content-reverse-vlm {
   display: flex;
   align-items: center;
   gap: 8px;
   cursor: pointer;
+}
+
+.content-reverse-option {
+  display: grid;
+  gap: 4px;
+  margin-top: 12px;
+}
+
+.content-reverse-hint {
+  color: var(--dm-content-muted);
+  font-size: var(--dm-font-size-xs);
+  line-height: 1.5;
 }
 
 .content-transcript-heading {
@@ -401,6 +414,17 @@
 .remake-file-label {
   color: var(--dm-color-text-secondary);
   font-size: var(--dm-font-size-sm);
+}
+
+.remake-vendor {
+  display: grid;
+  gap: 6px;
+}
+
+.remake-vendor-name {
+  color: var(--dm-color-text);
+  font-size: var(--dm-font-size-sm);
+  font-weight: 600;
 }
 
 .remake-file {

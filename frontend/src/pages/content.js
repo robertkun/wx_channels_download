@@ -861,6 +861,44 @@ function ContentRowActions(props) {
   ];
 }
 
+function ContentReverseVlmOption(props) {
+  const vm$ = props.store;
+  const checkbox = createCheckboxStore({
+    checked: vm$.state.reverse_vlm,
+  });
+  return View({ class: "content-reverse-option" }, [
+    View(
+      {
+        class: "content-reverse-vlm",
+        attributes: { n: "content-reverse-vlm" },
+        onClick() {
+          checkbox.toggle();
+        },
+      },
+      [
+        Checkbox({
+          store: checkbox,
+          attributes: {
+            n: "content-reverse-vlm-checkbox",
+            "aria-label": "看图写分镜",
+          },
+          onClick(event) {
+            event.stopPropagation();
+          },
+        }),
+        View({ attributes: { n: "content-reverse-vlm-label" } }, ["看图写分镜"]),
+      ],
+    ),
+    View(
+      {
+        class: "content-reverse-hint",
+        attributes: { n: "content-reverse-vlm-hint" },
+      },
+      ["默认关闭。勾选后会看关键帧并写出每个镜头的提示词，不勾选则只拆镜头和声音。"],
+    ),
+  ]);
+}
+
 function ContentReverseDialog(props) {
   const vm$ = props.store;
   return Dialog(
@@ -909,6 +947,7 @@ function ContentReverseDialog(props) {
               ),
             ],
           ),
+          ContentReverseVlmOption({ store: vm$ }),
           View(
             {
               class: "content-transcript-actions",

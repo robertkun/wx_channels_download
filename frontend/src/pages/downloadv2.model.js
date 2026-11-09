@@ -319,6 +319,7 @@ function DownloadV2Model(props = {}) {
   const reverse_text_ = ref("");
   const reverse_message_ = ref("");
   const reverse_path_ = ref("");
+  const reverse_vlm_ = ref(false);
   const reverse_task_id_ = ref("");
   let reverse_sequence = 0;
   let reverse_timer = null;
@@ -1350,7 +1351,11 @@ function DownloadV2Model(props = {}) {
       const response = await fetch(`${task_console_origin()}/api/video-reverse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: media_path, force: Boolean(force) }),
+        body: JSON.stringify({
+          path: media_path,
+          force: Boolean(force),
+          use_vlm: reverse_vlm_.value !== false,
+        }),
       });
       const payload = await response.json().catch(() => ({}));
       if (sequence !== reverse_sequence) return payload;
@@ -1463,24 +1468,12 @@ function DownloadV2Model(props = {}) {
     return null;
   }
 
-  async function open_reverse_report() {
+  function open_reverse_report() {
     const media_path = String(reverse_path_.value || "").trim();
     if (!media_path) return null;
-    try {
-      const response = await fetch(`${task_console_origin()}/api/video-reverse/open`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: media_path }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.ok) {
-        reverse_message_.as((payload && payload.error) || "打开报告失败");
-      }
-      return payload;
-    } catch (_error) {
-      reverse_message_.as("任务服务没有在运行。视频反推需要本机任务页保持启动。");
-      return null;
-    }
+    const url = `${task_console_origin()}/api/video-reverse/report?path=${encodeURIComponent(media_path)}`;
+    window.open(url, "_blank", "noopener");
+    return true;
   }
 
   function set_white_model_job(id, status) {
@@ -1718,7 +1711,7 @@ function DownloadV2Model(props = {}) {
       ...(remake_reference_.value || {}),
     };
     current.source = current.source !== false;
-    if (current.model !== "hailuo" && current.model !== "hailuo-2-3") current.model = "mu-video";
+    if (!["hailuo", "hailuo-2-3", "buming-h3", "mu-video"].includes(current.model)) current.model = "mu-video";
     if (typeof ready === "boolean") current.whiteReady = ready;
     if (!current.whiteReady) current.white = false;
     return current;
@@ -1750,9 +1743,9 @@ function DownloadV2Model(props = {}) {
 
   function remake_request_flags() {
     const selected = normalize_remake_reference();
-    if (selected.model === "hailuo") {
+    if (selected.model === "hailuo" || selected.model === "buming-h3") {
       return {
-        model: "hailuo",
+        model: selected.model,
         use_original: Boolean(selected.source),
         use_white: Boolean(selected.white && selected.whiteReady),
       };
@@ -2620,12 +2613,12 @@ function DownloadV2Model(props = {}) {
     downloadRemake: download_remake,
     pickRemakeModel(value) {
       const current = normalize_remake_reference();
-      current.model = value === "hailuo" ? "hailuo" : value === "hailuo-2-3" ? "hailuo-2-3" : "mu-video";
+      current.model = ["hailuo", "hailuo-2-3", "buming-h3"].includes(value) ? value : "mu-video";
       remake_reference_.as(current);
     },
     pickRemakeReference(value) {
       const current = normalize_remake_reference();
-      if (current.model !== "hailuo") return;
+      if (current.model !== "hailuo" && current.model !== "buming-h3") return;
       if (value === "source") current.source = !current.source;
       if (value === "white" && current.whiteReady) current.white = !current.white;
       remake_reference_.as(current);
@@ -2708,6 +2701,7 @@ function DownloadV2Model(props = {}) {
     reverse_text: reverse_text_,
     reverse_message: reverse_message_,
     reverse_action_label: reverse_action_label_,
+    reverse_vlm: reverse_vlm_,
     white_model_jobs: white_model_jobs_,
     white_model_title: white_model_title_,
     white_model_message: white_model_message_,

@@ -698,6 +698,17 @@
   font-size: var(--dm-font-size-sm);
 }
 
+.remake-vendor {
+  display: grid;
+  gap: 6px;
+}
+
+.remake-vendor-name {
+  color: var(--dm-color-text);
+  font-size: var(--dm-font-size-sm);
+  font-weight: 600;
+}
+
 .remake-file {
   display: grid;
   gap: 6px;
