@@ -92,6 +92,9 @@ func (c *APIClient) handle_fetch_file(ctx *gin.Context) {
 		return
 	}
 	if ctx.Query("preview") != "1" {
+		if ctx.Query("download") == "1" {
+			ctx.Header("Content-Disposition", attachment_header(filepath.Base(path)))
+		}
 		ctx.File(path)
 		return
 	}
@@ -196,9 +199,11 @@ func (c *APIClient) resolve_unique_download_file_prefix(path string) (string, bo
 	if err != nil {
 		return "", false
 	}
-	var matched_path string
+	matched_path := ""
+	matched_rank := 0
+	ambiguous := false
 	for _, entry := range entries {
-		if !strings.HasPrefix(entry.Name(), base) {
+		if !strings.HasPrefix(entry.Name(), base) || download_sidecar_name(entry.Name()) {
 			continue
 		}
 		candidate := filepath.Join(dir, entry.Name())
@@ -214,12 +219,56 @@ func (c *APIClient) resolve_unique_download_file_prefix(path string) (string, bo
 		if err != nil || info.IsDir() {
 			continue
 		}
-		if matched_path != "" {
-			return "", false
+		rank := download_media_rank(entry.Name())
+		if matched_path == "" || rank < matched_rank {
+			matched_path = candidate
+			matched_rank = rank
+			ambiguous = false
+			continue
 		}
-		matched_path = candidate
+		if rank == matched_rank {
+			ambiguous = true
+		}
 	}
-	return matched_path, matched_path != ""
+	if ambiguous || matched_path == "" {
+		return "", false
+	}
+	return matched_path, true
+}
+
+func download_media_rank(name string) int {
+	switch strings.ToLower(filepath.Ext(name)) {
+	case ".mp4", ".mov", ".mkv", ".webm", ".m4v", ".avi", ".flv", ".ts":
+		return 0
+	case ".mp3", ".m4a", ".wav", ".aac", ".flac", ".ogg":
+		return 1
+	case ".tmp":
+		return 3
+	default:
+		return 2
+	}
+}
+
+func download_sidecar_name(name string) bool {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	return strings.Contains(lower, ".transcript.") || strings.HasSuffix(lower, ".part")
+}
+
+func attachment_header(name string) string {
+	name = filepath.Base(strings.TrimSpace(name))
+	if name == "" || name == "." || name == string(filepath.Separator) {
+		name = "video.mp4"
+	}
+	fallback := strings.Map(func(r rune) rune {
+		if r < 32 || r == '"' || r == '\\' || r > 126 {
+			return '_'
+		}
+		return r
+	}, name)
+	if strings.Trim(fallback, "_.") == "" {
+		fallback = "video" + filepath.Ext(name)
+	}
+	return fmt.Sprintf(`attachment; filename="%s"; filename*=UTF-8''%s`, fallback, url.PathEscape(name))
 }
 
 func (c *APIClient) is_image(ext string) bool {

@@ -203,21 +203,45 @@ function file_type_label(file_type) {
   return window.TYPE_LABELS[file_type] || window.TYPE_LABELS.other;
 }
 
+function page_media_url(path) {
+  const raw = String(path || "").trim();
+  if (!raw) return "";
+  const origin =
+    typeof window.server_media_origin === "function"
+      ? window.server_media_origin()
+      : window.location.origin;
+  let url;
+  try {
+    url = new URL(raw, origin);
+  } catch (error) {
+    return raw;
+  }
+  const base = new URL(origin);
+  const loopback = new Set(["127.0.0.1", "localhost", "::1", "0.0.0.0"]);
+  if (loopback.has(url.hostname)) {
+    url.protocol = base.protocol;
+    url.host = base.host;
+  }
+  return url.href;
+}
+
 function file_url(file) {
   if (!file) {
     return "";
   }
   if (file.file_url) {
-    return new URL(file.file_url, window.API_ORIGIN).href;
+    return page_media_url(file.file_url);
   }
-  return `/api/file?path=${encodeURIComponent(file.local_path || "")}`;
+  return page_media_url(
+    `/api/file?path=${encodeURIComponent(file.local_path || "")}`,
+  );
 }
 
 function playback_url(file) {
   if (!file || !file.playback_url) {
     return "";
   }
-  return new URL(file.playback_url, window.API_ORIGIN).href;
+  return page_media_url(file.playback_url);
 }
 
 function subtitle_format(file) {
@@ -438,7 +462,7 @@ function normalize_zip_images(data) {
     .filter((image) => image && image.url)
     .map((image) => ({
       name: first_non_empty(image.name, "未命名图片"),
-      url: new URL(image.url, window.API_ORIGIN).href,
+      url: page_media_url(image.url),
     }));
 }
 

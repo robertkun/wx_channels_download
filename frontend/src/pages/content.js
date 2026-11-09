@@ -1,5 +1,15 @@
-import { Tag, PlatformTag } from "../dmui.js";
+import {
+  Button,
+  Checkbox,
+  Dialog,
+  DialogBody,
+  DialogTitle,
+  PlatformTag,
+  Tag,
+  createCheckboxStore,
+} from "../dmui.js";
 import { ContentViewModel } from "./content.model.js";
+import { DownloadV2RemakeDialog, WhiteModelControls } from "./downloadv2.components.js";
 import ContentDetailPageView from "./content_detail.js";
 
 function ContentDetailDrawer(props) {
@@ -34,12 +44,21 @@ function ContentPageView(props) {
       onMounted() {
         vm$.methods.ready();
       },
+      onUnmounted() {
+        vm$.methods.clean();
+      },
     },
     [
       View({ class: "content-toolbar-wrap" }, [
         ContentPageToolbar({ store: vm$ }),
       ]),
       ContentPageBody({ store: vm$ }),
+      ContentTranscriptDialog({ store: vm$ }),
+      ContentReverseDialog({ store: vm$ }),
+      ContentFileURLDialog({ store: vm$ }),
+      ContentWhiteModelDialog({ store: vm$ }),
+      DownloadV2RemakeDialog({ store: vm$ }),
+      ContentDeleteDialog({ store: vm$ }),
       ContentDetailDrawer({
         store: vm$,
         app: props.app,
@@ -475,6 +494,712 @@ function ContentSkeletonRow() {
           }),
         ],
       ),
+      View(
+        {
+          class: "dm-table-cell content-row-actions",
+          attributes: {
+            n: "content-table-skeleton-actions",
+            role: "cell",
+          },
+        },
+        [
+          View({
+            class: "content-skeleton content-skeleton-line-short",
+            attributes: { n: "content-table-skeleton-actions-value" },
+          }),
+        ],
+      ),
+    ],
+  );
+}
+
+function ContentTranscriptDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.transcriptDialog$,
+      class: "content-transcript-dialog",
+      attributes: { n: "content-transcript-dialog" },
+    },
+    () => [
+      DialogTitle(
+        {
+          class: "content-transcript-heading",
+          attributes: { n: "content-transcript-heading" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-title",
+              attributes: { n: "content-transcript-title" },
+            },
+            [vm$.state.transcript_title],
+          ),
+          View(
+            {
+              class: "content-transcript-message",
+              attributes: { n: "content-transcript-message" },
+            },
+            [vm$.state.transcript_message],
+          ),
+        ],
+      ),
+      DialogBody(
+        {
+          class: "content-transcript-body",
+          attributes: { n: "content-transcript-body" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-text",
+              attributes: { n: "content-transcript-text" },
+            },
+            [
+              computed(vm$.state.transcript_text, (text) =>
+                text ? text : "文案会显示在这里。",
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "content-transcript-actions",
+              attributes: { n: "content-transcript-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_transcript_copy$,
+                  attributes: { n: "content-transcript-copy" },
+                },
+                ["复制文案"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_transcript_rerun$,
+                  attributes: { n: "content-transcript-rerun" },
+                },
+                ["重新提取"],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+function stop_row_click(event) {
+  if (event && typeof event.stopPropagation === "function") {
+    event.stopPropagation();
+  }
+}
+
+function ContentActionButton(props) {
+  const disabled = Boolean(props.disabled);
+  return View(
+    {
+      type: "button",
+      class: [
+        "content-row-action",
+        props.danger ? "content-row-action-danger" : "",
+        props.loading ? "is-loading" : "",
+        disabled ? "is-disabled" : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+      attributes: {
+        type: "button",
+        title: props.title || "",
+        "aria-label": props.title || "",
+        "aria-disabled": disabled ? "true" : "false",
+      },
+      onClick(event) {
+        stop_row_click(event);
+        if (disabled) return;
+        if (typeof props.onClick === "function") props.onClick(event);
+      },
+    },
+    props.icon ? [Timeless.Icon({ name: props.icon, size: 18 })] : props.children || [],
+  );
+}
+
+function ContentRemakeIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({
+        attributes: {
+          d: "M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z",
+        },
+      }),
+      SVG.Path({ attributes: { d: "m6.2 5.3 3.1 3.9" } }),
+      SVG.Path({ attributes: { d: "m12.4 3.4 3.1 4" } }),
+      SVG.Path({
+        attributes: { d: "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" },
+      }),
+    ],
+  );
+}
+
+function ContentReverseIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({ attributes: { d: "M3 7V5a2 2 0 0 1 2-2h2" } }),
+      SVG.Path({ attributes: { d: "M17 3h2a2 2 0 0 1 2 2v2" } }),
+      SVG.Path({ attributes: { d: "M21 17v2a2 2 0 0 1-2 2h-2" } }),
+      SVG.Path({ attributes: { d: "M7 21H5a2 2 0 0 1-2-2v-2" } }),
+      SVG.Circle({ attributes: { cx: "12", cy: "12", r: "3" } }),
+      SVG.Path({ attributes: { d: "m16 16-1.9-1.9" } }),
+    ],
+  );
+}
+
+function ContentWhiteModelIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        class: "lucide lucide-box",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({
+        attributes: {
+          d: "M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z",
+        },
+      }),
+      SVG.Path({ attributes: { d: "m3.3 7 8.7 5 8.7-5" } }),
+      SVG.Path({ attributes: { d: "M12 22V12" } }),
+    ],
+  );
+}
+
+function ContentRowActions(props) {
+  const vm$ = props.store;
+  const content = props.content;
+  const id = String(content.id || "");
+  const has_file = Number(content.file_count) > 0;
+  const transcript_job_ = computed(
+    vm$.state.transcript_jobs,
+    (jobs) => (jobs && jobs[id]) || "",
+  );
+  const reverse_job_ = computed(
+    vm$.state.reverse_jobs,
+    (jobs) => (jobs && jobs[id]) || "",
+  );
+  const white_model_job_ = computed(
+    vm$.state.white_model_jobs,
+    (jobs) => (jobs && jobs[id]) || "",
+  );
+  const remake_job_ = computed(
+    vm$.state.remake_jobs,
+    (jobs) => (jobs && jobs[id]) || "",
+  );
+  return [
+    ContentActionButton({
+      icon: "folder",
+      title: "源站下载地址",
+      onClick() {
+        vm$.methods.showFileURL(content);
+      },
+    }),
+    ContentActionButton({
+      icon: "download",
+      title: has_file ? "下载到本机" : "视频还没下载完成",
+      disabled: !has_file,
+      onClick() {
+        vm$.methods.downloadFile(content);
+      },
+    }),
+    View(
+      {
+        type: "button",
+        class: computed(transcript_job_, (job) =>
+          ["content-row-action", job === "loading" ? "is-loading" : ""]
+            .filter(Boolean)
+            .join(" "),
+        ),
+        attributes: {
+          type: "button",
+          title: computed(transcript_job_, (job) =>
+            job === "loading" ? "提取中" : job === "ready" ? "查看文案" : "文案提取",
+          ),
+          "aria-label": computed(transcript_job_, (job) =>
+            job === "loading" ? "提取中" : job === "ready" ? "查看文案" : "文案提取",
+          ),
+        },
+        onClick(event) {
+          stop_row_click(event);
+          if (transcript_job_.value === "loading") return;
+          vm$.methods.openTranscript(content);
+        },
+      },
+      [Timeless.Icon({ name: "scroll-text", size: 18 })],
+    ),
+    View(
+      {
+        type: "button",
+        class: computed(reverse_job_, (job) =>
+          ["content-row-action", job === "loading" ? "is-loading" : ""]
+            .filter(Boolean)
+            .join(" "),
+        ),
+        attributes: {
+          type: "button",
+          title: computed(reverse_job_, (job) =>
+            job === "loading" ? "反推中" : job === "ready" ? "查看反推" : "视频反推",
+          ),
+          "aria-label": computed(reverse_job_, (job) =>
+            job === "loading" ? "反推中" : job === "ready" ? "查看反推" : "视频反推",
+          ),
+        },
+        onClick(event) {
+          stop_row_click(event);
+          if (reverse_job_.value === "loading") return;
+          vm$.methods.openReverse(content);
+        },
+      },
+      [ContentReverseIcon()],
+    ),
+    View(
+      {
+        type: "button",
+        class: computed(white_model_job_, (job) =>
+          ["content-row-action", job === "loading" ? "is-loading" : ""]
+            .filter(Boolean)
+            .join(" "),
+        ),
+        attributes: {
+          type: "button",
+          title: computed(white_model_job_, (job) =>
+            job === "loading" ? "转换中" : job === "ready" ? "查看白模" : "转白模",
+          ),
+          "aria-label": computed(white_model_job_, (job) =>
+            job === "loading" ? "转换中" : job === "ready" ? "查看白模" : "转白模",
+          ),
+        },
+        onClick(event) {
+          stop_row_click(event);
+          vm$.methods.openWhiteModel(content);
+        },
+      },
+      [ContentWhiteModelIcon()],
+    ),
+    View(
+      {
+        type: "button",
+        class: computed(remake_job_, (job) =>
+          ["content-row-action", job === "loading" ? "is-loading" : ""]
+            .filter(Boolean)
+            .join(" "),
+        ),
+        attributes: {
+          type: "button",
+          title: computed(remake_job_, (job) =>
+            job === "loading" ? "复刻中" : job === "ready" ? "查看复刻" : "视频复刻",
+          ),
+          "aria-label": computed(remake_job_, (job) =>
+            job === "loading" ? "复刻中" : job === "ready" ? "查看复刻" : "视频复刻",
+          ),
+        },
+        onClick(event) {
+          stop_row_click(event);
+          vm$.methods.openRemake(content);
+        },
+      },
+      [ContentRemakeIcon()],
+    ),
+    ContentActionButton({
+      icon: "trash2",
+      title: "删除",
+      danger: true,
+      onClick() {
+        vm$.methods.requestDelete(content);
+      },
+    }),
+  ];
+}
+
+function ContentReverseDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.reverseDialog$,
+      class: "content-transcript-dialog",
+      attributes: { n: "content-reverse-dialog" },
+    },
+    () => [
+      DialogTitle(
+        {
+          class: "content-transcript-heading",
+          attributes: { n: "content-reverse-heading" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-title",
+              attributes: { n: "content-reverse-title" },
+            },
+            [vm$.state.reverse_title],
+          ),
+          View(
+            {
+              class: "content-transcript-message",
+              attributes: { n: "content-reverse-message" },
+            },
+            [vm$.state.reverse_message],
+          ),
+        ],
+      ),
+      DialogBody(
+        {
+          class: "content-transcript-body",
+          attributes: { n: "content-reverse-body" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-text",
+              attributes: { n: "content-reverse-text" },
+            },
+            [
+              computed(vm$.state.reverse_text, (text) =>
+                text ? text : "反推结果会显示在这里。",
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "content-transcript-actions",
+              attributes: { n: "content-reverse-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_reverse_copy$,
+                  attributes: { n: "content-reverse-copy" },
+                },
+                ["复制结论"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_reverse_open$,
+                  attributes: { n: "content-reverse-open" },
+                },
+                ["打开报告"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_reverse_rerun$,
+                  attributes: { n: "content-reverse-rerun" },
+                },
+                ["重新反推"],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+function ContentFileURLDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.fileUrlDialog$,
+      class: "content-file-url-dialog",
+      attributes: { n: "content-file-url-dialog" },
+    },
+    () => [
+      DialogTitle(
+        {
+          class: "content-transcript-heading",
+          attributes: { n: "content-file-url-heading" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-title",
+              attributes: { n: "content-file-url-title" },
+            },
+            ["源站下载地址"],
+          ),
+          View(
+            {
+              class: "content-transcript-message",
+              attributes: { n: "content-file-url-message" },
+            },
+            [vm$.state.file_url_title],
+          ),
+        ],
+      ),
+      DialogBody({}, [
+        View(
+          {
+            class: "content-file-url",
+            attributes: { n: "content-file-url" },
+          },
+          [
+            computed(vm$.state.file_url, (url) =>
+              url ? url : "没有保存源站下载地址。",
+            ),
+          ],
+        ),
+        View(
+          {
+            class: "content-transcript-actions",
+            attributes: { n: "content-file-url-actions" },
+          },
+          [
+            Button(
+              {
+                store: vm$.ui.btn_file_url_copy$,
+                attributes: { n: "content-file-url-copy" },
+              },
+              ["复制地址"],
+            ),
+          ],
+        ),
+      ]),
+    ],
+  );
+}
+
+function ContentWhiteModelDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.whiteModelDialog$,
+      class: "content-transcript-dialog",
+      attributes: { n: "content-white-model-dialog" },
+    },
+    () => [
+      DialogTitle(
+        {
+          class: "content-transcript-heading",
+          attributes: { n: "content-white-model-heading" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-title",
+              attributes: { n: "content-white-model-title" },
+            },
+            [vm$.state.white_model_title],
+          ),
+          View(
+            {
+              class: "content-transcript-message",
+              attributes: { n: "content-white-model-message" },
+            },
+            [vm$.state.white_model_message],
+          ),
+        ],
+      ),
+      DialogBody({ class: "content-white-model-body" }, [
+        Show({
+          when: computed(vm$.state.white_model_progress, (value) => Number(value) >= 0),
+          ok() {
+            return View(
+              {
+                class: "content-white-model-progress",
+                attributes: { n: "content-white-model-progress" },
+              },
+              [
+                View({
+                  class: "content-white-model-progress-bar",
+                  style: computed(vm$.state.white_model_progress, (value) => ({
+                    width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`,
+                  })),
+                }),
+              ],
+            );
+          },
+        }),
+        Show({
+          when: computed(vm$.state.white_model_url, (url) => Boolean(url)),
+          ok() {
+            return Timeless.Video({
+              class: "content-white-model-video",
+              src: vm$.state.white_model_url,
+              controls: true,
+              playsInline: true,
+              preload: "metadata",
+              attributes: { n: "content-white-model-video" },
+            });
+          },
+          else() {
+            return Show({
+              when: computed(vm$.state.white_model_error, (value) =>
+                Boolean(String(value || "").trim()),
+              ),
+              ok() {
+                return View(
+                  {
+                    class: "content-white-model-raw",
+                    attributes: { n: "content-white-model-raw" },
+                  },
+                  [
+                    View({ class: "content-white-model-raw-label" }, ["原始报错"]),
+                    View(
+                      {
+                        as: "pre",
+                        class: "content-white-model-raw-text",
+                      },
+                      [vm$.state.white_model_error],
+                    ),
+                  ],
+                );
+              },
+              else() {
+                return View(
+                  {
+                    class: "content-white-model-empty",
+                    attributes: { n: "content-white-model-empty" },
+                  },
+                  ["白模视频会显示在这里。"],
+                );
+              },
+            });
+          },
+        }),
+        WhiteModelControls({ store: vm$ }),
+        View(
+          {
+            class: "content-transcript-actions",
+            attributes: { n: "content-white-model-actions" },
+          },
+          [
+            Button(
+              {
+                store: vm$.ui.btn_white_model_download$,
+                attributes: { n: "content-white-model-download" },
+              },
+              ["下载白模"],
+            ),
+            Button(
+              {
+                store: vm$.ui.btn_white_model_run$,
+                attributes: { n: "content-white-model-run" },
+              },
+              [
+                computed(vm$.state.white_model_url, (url) =>
+                  url ? "重新转换" : "转白模",
+                ),
+              ],
+            ),
+          ],
+        ),
+      ]),
+    ],
+  );
+}
+
+function ContentDeleteDialog(props) {
+  const vm$ = props.store;
+  const checkbox = createCheckboxStore({
+    checked: vm$.state.delete_files,
+  });
+  return Dialog(
+    {
+      store: vm$.ui.deleteConfirmDialog$,
+      zIndex: 10000,
+      class: "dm-dialog--form",
+      okText: "删除",
+      attributes: { n: "content-delete-dialog" },
+    },
+    [
+      DialogTitle(
+        {
+          class: "content-transcript-heading",
+          attributes: { n: "content-delete-heading" },
+        },
+        [
+          View(
+            {
+              class: "content-transcript-title",
+              attributes: { n: "content-delete-title" },
+            },
+            ["删除下载任务"],
+          ),
+          View(
+            {
+              class: "content-transcript-message",
+              attributes: { n: "content-delete-message" },
+            },
+            [
+              computed(vm$.state.delete_task_count, (count) => {
+                const total = Number(count) || 1;
+                return `确定删除 ${total} 个下载任务记录？此操作不可恢复。`;
+              }),
+            ],
+          ),
+        ],
+      ),
+      DialogBody({}, [
+        View(
+          {
+            class: "content-delete-files",
+            attributes: { n: "content-delete-files" },
+            onClick() {
+              checkbox.toggle();
+            },
+          },
+          [
+            Checkbox({
+              store: checkbox,
+              attributes: {
+                n: "content-delete-files-checkbox",
+                "aria-label": "同时删除已下载的文件",
+              },
+              onClick(event) {
+                event.stopPropagation();
+              },
+            }),
+            View({ attributes: { n: "content-delete-files-label" } }, [
+              "同时删除已下载的文件",
+            ]),
+          ],
+        ),
+      ]),
     ],
   );
 }
@@ -535,6 +1260,15 @@ function ContentPageBody(props) {
           return ContentRowStatistics({
             statistics: vm$.methods.statistics(content),
           });
+        },
+      },
+      {
+        name: "actions",
+        title: "操作",
+        width: 348,
+        cellClass: "content-row-actions",
+        render(content) {
+          return ContentRowActions({ store: vm$, content });
         },
       },
     ],

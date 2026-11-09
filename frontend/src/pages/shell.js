@@ -26,14 +26,10 @@ export default function SiderLayoutView(props) {
     [
       View({ as: "aside", class: "app-sider dm-flex dm-flex-col" }, [
         View({ class: "app-brand" }, [
-          Img({
-            class: "app-brand__logo",
-            src: "public/logo.png?v=logo-only-v4",
-            alt: "D&M",
-            attributes: {
-              draggable: "false",
-            },
-          }),
+          View({ class: "app-brand__mark", attributes: { "aria-hidden": "true" } }, [
+            "▶",
+          ]),
+          View({ class: "app-brand__name" }, ["视频工厂"]),
           View({ class: "app-brand__version" }, [
             Show({
               when: model.models.update.state.notice_visible,

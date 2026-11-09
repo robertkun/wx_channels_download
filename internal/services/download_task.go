@@ -1690,7 +1690,7 @@ func (s *DownloadTaskService) BuildTaskRecords(tasks []model.DownloadTask) ([]Do
 			}
 			if resource_size > 0 && resource_downloaded >= resource_size {
 				file_status = "finished"
-			} else if resource_downloaded > 0 || resource_speed > 0 || task.Status == model.TaskStatusDownloading {
+			} else if file_status != "finished" && (resource_downloaded > 0 || resource_speed > 0 || task.Status == model.TaskStatusDownloading) {
 				file_status = "downloading"
 			}
 			file_error := ""
@@ -1722,6 +1722,16 @@ func (s *DownloadTaskService) BuildTaskRecords(tasks []model.DownloadTask) ([]Do
 				URL:         url_by_resource[r.ID],
 				Error:       file_error,
 			})
+		}
+		task, files = s.settle_finished_download(task, files)
+		if task.Status == model.TaskStatusFinished {
+			var settled_downloaded int64
+			for _, file := range files {
+				settled_downloaded += file.Downloaded
+			}
+			if settled_downloaded > downloaded_by_task[task.Id] {
+				downloaded_by_task[task.Id] = settled_downloaded
+			}
 		}
 		effective_status := ComputeEffectiveTaskStatus(task.Status, files)
 		content_type := ""
@@ -3526,6 +3536,105 @@ func MapResourceTaskStatus(status int) int {
 	return model.TaskStatusDownloading
 }
 
+// settle_finished_download marks a task finished when its media is already on
+// disk but the database status is still preparing, downloading, or merging.
+// An in-flight engine tracker means the transfer is still running.
+func (s *DownloadTaskService) settle_finished_download(task model.DownloadTask, files []DownloadTaskFileRecord) (model.DownloadTask, []DownloadTaskFileRecord) {
+	if !download_output_settled(s, task, files) {
+		return task, files
+	}
+	for index := range files {
+		files[index].Status = "finished"
+		files[index].Speed = 0
+		if files[index].Size > 0 && files[index].Downloaded < files[index].Size {
+			files[index].Downloaded = files[index].Size
+		}
+		files[index].Progress = 100
+	}
+	s.mark_download_task_finished(task.Id)
+	task.Status = model.TaskStatusFinished
+	return task, files
+}
+
+func download_output_settled(service *DownloadTaskService, task model.DownloadTask, files []DownloadTaskFileRecord) bool {
+	switch task.Status {
+	case model.TaskStatusPreparing, model.TaskStatusDownloading, model.TaskStatusMerging:
+	default:
+		return false
+	}
+	if service != nil && service.downloader != nil && service.downloader.CurrentProgress(task.Id) != nil {
+		return false
+	}
+	if len(files) == 0 {
+		return false
+	}
+	for _, file := range files {
+		if strings.EqualFold(file.Type, model.ResourceTypeStream) {
+			return false
+		}
+		if file.Status == "finished" || (file.Size > 0 && file.Downloaded >= file.Size) {
+			continue
+		}
+		if completed_output_path(file) == "" {
+			return false
+		}
+	}
+	return true
+}
+
+func completed_output_path(file DownloadTaskFileRecord) string {
+	path := strings.TrimSpace(file.FilePath)
+	if path == "" {
+		path = filepath.Join(strings.TrimSpace(file.DownloadDir), strings.TrimSpace(file.Name))
+	}
+	if path == "" {
+		return ""
+	}
+	candidates := []string{path}
+	extension := strings.ToLower(filepath.Ext(path))
+	stem := strings.TrimSuffix(path, filepath.Ext(path))
+	if extension == "" || extension == ".tmp" {
+		if canonical := hermes.CanonicalExtensionForMIMEType(file.Kind); canonical != "" {
+			candidates = append(candidates, stem+canonical)
+		}
+		if !strings.EqualFold(extension, ".mp4") {
+			candidates = append(candidates, stem+".mp4")
+		}
+	}
+	for _, candidate := range candidates {
+		lower := strings.ToLower(candidate)
+		if strings.HasSuffix(lower, ".tmp") || strings.HasSuffix(lower, ".part") {
+			continue
+		}
+		info, err := os.Stat(candidate)
+		if err != nil || info.IsDir() || info.Size() <= 0 {
+			continue
+		}
+		if extension == ".tmp" {
+			if _, stat_err := os.Stat(stem + ".tmp"); stat_err == nil {
+				return ""
+			}
+		}
+		return candidate
+	}
+	return ""
+}
+
+func (s *DownloadTaskService) mark_download_task_finished(task_id int) {
+	if s == nil || s.db == nil || task_id <= 0 {
+		return
+	}
+	now := time.Now().UnixMilli()
+	s.db.Model(&model.DownloadTask{}).
+		Where("id = ? AND status IN ?", task_id, []int{
+			model.TaskStatusPreparing,
+			model.TaskStatusDownloading,
+			model.TaskStatusMerging,
+		}).
+		Updates(map[string]any{"status": model.TaskStatusFinished, "updated_at": now})
+	s.db.Exec(`UPDATE download_resource SET status = 2, speed = 0, updated_at = ? WHERE task_id = ? AND status <> 2`, now, task_id)
+}
+
 // ComputeEffectiveTaskStatus derives the effective task status from the database status and file states.
 func ComputeEffectiveTaskStatus(db_status int, files []DownloadTaskFileRecord) int {
 	finished_count := 0
@@ -3546,15 +3655,16 @@ func ComputeEffectiveTaskStatus(db_status int, files []DownloadTaskFileRecord) i
 func ComputeEffectiveTaskStatusFromSummary(db_status int, file_count int, finished_count int, has_downloading bool) int {
 	switch db_status {
 	case model.TaskStatusPaused, model.TaskStatusFinished, model.TaskStatusFailed,
-		model.TaskStatusCancelled, model.TaskStatusMerging:
+		model.TaskStatusCancelled:
+		return db_status
+	}
+	if file_count > 0 && finished_count == file_count && !has_downloading {
+		return model.TaskStatusFinished
+	}
+	if db_status == model.TaskStatusMerging {
 		return db_status
 	}
 	if file_count == 0 {
-		return db_status
-	}
-	if finished_count == file_count {
-		// Files finish transferring before postprocessing and final renaming.
-		// Only the persisted task status may declare the task complete.
 		return db_status
 	}
 	if has_downloading {

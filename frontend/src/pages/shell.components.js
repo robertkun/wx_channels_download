@@ -385,8 +385,8 @@ function AboutSettingsDetails(props) {
         }),
       ]),
       View({ class: "settings-about__identity" }, [
-        View({ class: "settings-about__eyebrow" }, ["微信视频号下载工具"]),
-        View({ class: "settings-about__name" }, ["wx_channels_download"]),
+        View({ class: "settings-about__eyebrow" }, ["本机工作台"]),
+        View({ class: "settings-about__name" }, ["视频工厂"]),
         View({ class: "settings-about__summary" }, [
           "在本机抓取、下载和管理内容。",
         ]),

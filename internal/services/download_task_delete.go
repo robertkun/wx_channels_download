@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -112,16 +113,7 @@ func (s *DownloadTaskService) download_task_local_file_candidates(task model.Dow
 			if !download_task_path_within_root(root, path) {
 				continue
 			}
-			resource_candidates := []download_task_local_file_candidate{
-				{path: path, candidate_type: "final"},
-				{path: path + ".part", candidate_type: "partial"},
-			}
-			if strings.EqualFold(resource.Type, model.ResourceTypeStream) {
-				resource_candidates = append(resource_candidates,
-					download_task_local_file_candidate{path: hermes.StreamRecordingDir(path), candidate_type: "recording"},
-					download_task_local_file_candidate{path: hermes.StreamPlaybackDir(path), candidate_type: "playback"},
-				)
-			}
+			resource_candidates := local_file_delete_candidates(path, resource.Kind, resource.Type)
 			for _, candidate := range resource_candidates {
 				if _, exists := seen[candidate.path]; exists {
 					continue
@@ -172,4 +164,66 @@ func download_task_path_within_root(root string, target string) bool {
 		return false
 	}
 	return !strings.HasPrefix(relative, ".."+string(filepath.Separator))
+}
+
+// local_file_delete_candidates expands the name stored on the task. That name
+// is often the extensionless title or the temporary .tmp name, while the
+// finished file is the same stem plus the media extension. Transcript files
+// are written beside the media file and are not task records.
+func local_file_delete_candidates(path, kind, resource_type string) []download_task_local_file_candidate {
+	media_paths := []string{path}
+	extension := filepath.Ext(path)
+	stem := strings.TrimSuffix(path, extension)
+	if extension == "" || strings.EqualFold(extension, ".tmp") {
+		for _, output_ext := range download_output_extensions(kind) {
+			media_paths = append(media_paths, stem+output_ext)
+		}
+	}
+
+	candidates := make([]download_task_local_file_candidate, 0, len(media_paths)*4)
+	seen := map[string]struct{}{}
+	add := func(candidate_path, candidate_type string) {
+		candidate_path = filepath.Clean(candidate_path)
+		if _, exists := seen[candidate_path]; exists {
+			return
+		}
+		seen[candidate_path] = struct{}{}
+		candidates = append(candidates, download_task_local_file_candidate{
+			path:           candidate_path,
+			candidate_type: candidate_type,
+		})
+	}
+	for _, media_path := range media_paths {
+		add(media_path, "final")
+		add(media_path+".part", "partial")
+		media_stem := strings.TrimSuffix(media_path, filepath.Ext(media_path))
+		add(media_stem+".transcript.txt", "transcript")
+		add(media_stem+".transcript.timing.json", "transcript")
+	}
+	if strings.EqualFold(resource_type, model.ResourceTypeStream) {
+		add(hermes.StreamRecordingDir(path), "recording")
+		add(hermes.StreamPlaybackDir(path), "playback")
+	}
+	return candidates
+}
+
+func download_output_extensions(kind string) []string {
+	seen := map[string]struct{}{}
+	add := func(ext string) {
+		ext = strings.ToLower(strings.TrimSpace(ext))
+		if ext == "" || ext == ".tmp" || ext == ".part" {
+			return
+		}
+		if !strings.HasPrefix(ext, ".") {
+			ext = "." + ext
+		}
+		seen[ext] = struct{}{}
+	}
+	add(hermes.CanonicalExtensionForMIMEType(kind))
+	extensions := make([]string, 0, len(seen))
+	for ext := range seen {
+		extensions = append(extensions, ext)
+	}
+	sort.Strings(extensions)
+	return extensions
 }

@@ -5,6 +5,11 @@ import {
   CreatePlatformTaskPreviewDialog,
   CreateTaskDialog,
   CreateTaskPreviewDialog,
+  DownloadV2FileURLDialog,
+  DownloadV2TranscriptDialog,
+  DownloadV2ReverseDialog,
+  DownloadV2RemakeDialog,
+  DownloadV2WhiteModelDialog,
   DownloadV2SelectionBar,
   DownloadV2StatusBar,
   DownloadV2TaskActions,
@@ -136,7 +141,7 @@ function DownloadV2Page(props) {
     {
       name: "actions",
       title: "操作",
-      width: 132,
+      width: 348,
       cellClass: "dl-page-task-actions-cell",
       render(task$) {
         return DownloadV2TaskActions({
@@ -172,6 +177,11 @@ function DownloadV2Page(props) {
       CreateTaskDialog({ store: vm$ }),
       CreatePlatformTaskDialog({ store: vm$ }),
       CreateTaskPreviewDialog({ store: vm$ }),
+      DownloadV2FileURLDialog({ store: vm$ }),
+      DownloadV2TranscriptDialog({ store: vm$ }),
+      DownloadV2ReverseDialog({ store: vm$ }),
+      DownloadV2WhiteModelDialog({ store: vm$ }),
+      DownloadV2RemakeDialog({ store: vm$ }),
       CreatePlatformTaskPreviewDialog({ store: vm$ }),
       TaskDeleteConfirmDialog({ store: vm$ }),
       ClearTasksConfirmDialog({ store: vm$ }),

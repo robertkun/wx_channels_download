@@ -771,7 +771,7 @@ func (a *ChannelsAdapter) BuildDownloadTask(content_json json.RawMessage, config
 
 	title := config_string(config, "filename")
 	if title == "" {
-		title = ObjectTitle(&obj)
+		title = download_filename(ObjectTitle(&obj), a.logger)
 	}
 	spec := a.video_download_spec(&obj, config)
 	select_content_video_variant(ext, spec)

@@ -5,6 +5,7 @@
 *.p8
 *.p12
 dist/
+release/
 vendor
 
 wx_video_download*

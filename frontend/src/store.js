@@ -190,13 +190,18 @@ const routes_configure = {
     component: SiderLayoutView,
     children: {
       download: {
-        is_default: true,
         title: "下载",
         pathname: "/download",
         component: lazy("src/pages/downloadv2.js", "src/pages/downloadv2.css"),
         // options: animated_route_options,
       },
+      tasks: {
+        title: "任务",
+        pathname: "/tasks",
+        component: lazy("src/pages/tasks.js", "src/pages/tasks.css"),
+      },
       scraper: {
+        is_default: true,
         title: "内容抓取",
         pathname: "/scraper",
         component: lazy("src/pages/scraper.js", "src/pages/scraper.css"),

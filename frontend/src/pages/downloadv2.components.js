@@ -1,9 +1,8 @@
-import { Checkbox, Tag, createCheckboxStore } from "../dmui.js";
+import { Checkbox, Tag, Textarea, createCheckboxStore } from "../dmui.js";
 import {
   format_download_percent,
   format_download_size,
   format_download_speed,
-  is_download_open_external,
   is_download_waiting_status,
   normalize_download_status,
 } from "./downloadv2.model.js";
@@ -201,6 +200,7 @@ function DownloadV2TaskState(task$) {
       const is_pending = is_download_waiting_status(status);
       const is_completed =
         status === "done" ||
+        (percent >= 100 && !is_live_stream && !is_failed && !is_paused) ||
         (percent === 100 &&
           !is_running &&
           !is_failed &&
@@ -235,12 +235,7 @@ function DownloadV2TaskState(task$) {
       let progress_text = "";
       let speed_text = "";
 
-      if (is_running) {
-        speed_text = format_download_speed(progress.speed);
-        status_text = "下载中";
-        progress_text = is_live_stream ? "" : format_progress_text(percent);
-        status_color = "var(--dm-color-primary)";
-      } else if (is_completed) {
+      if (is_completed) {
         status_text = has_deleted_files
           ? all_files_deleted
             ? "文件已删除"
@@ -249,6 +244,11 @@ function DownloadV2TaskState(task$) {
         status_color = has_deleted_files
           ? "var(--dm-color-danger)"
           : "var(--dm-color-success)";
+      } else if (is_running) {
+        speed_text = format_download_speed(progress.speed);
+        status_text = "下载中";
+        progress_text = is_live_stream ? "" : format_progress_text(percent);
+        status_color = "var(--dm-color-primary)";
       } else if (is_failed) {
         status_text = "失败";
         error_text =
@@ -363,7 +363,6 @@ function DownloadV2TaskActionButton(props) {
 export function DownloadV2TaskActions(props) {
   const { store: vm$, task: task$ } = props;
   const state_ = DownloadV2TaskState(task$);
-  const is_open_external = is_download_open_external();
 
   return [
     Match({
@@ -386,10 +385,13 @@ export function DownloadV2TaskActions(props) {
         },
         1() {
           return DownloadV2TaskActionButton({
-            icon: is_open_external ? "file-symlink" : "folder",
-            title: is_open_external ? "打开链接" : "打开文件夹",
-            onClick() {
-              vm$.methods.openTask(task$);
+            icon: "folder",
+            title: "源站下载地址",
+            onClick(event) {
+              if (event && typeof event.stopPropagation === "function") {
+                event.stopPropagation();
+              }
+              vm$.methods.showTaskFileURL(task$);
             },
           });
         },
@@ -446,6 +448,11 @@ export function DownloadV2TaskActions(props) {
         },
       },
     }),
+    DownloadV2SaveAction({ store: vm$, task: task$ }),
+    DownloadV2TranscriptAction({ store: vm$, task: task$ }),
+    DownloadV2ReverseAction({ store: vm$, task: task$ }),
+    DownloadV2WhiteModelAction({ store: vm$, task: task$ }),
+    DownloadV2RemakeAction({ store: vm$, task: task$ }),
     DownloadV2TaskActionButton({
       icon: "trash2",
       title: "删除",
@@ -455,6 +462,203 @@ export function DownloadV2TaskActions(props) {
       },
     }),
   ];
+}
+
+function DownloadV2SaveAction(props) {
+  const { store: vm$, task: task$ } = props;
+  const state_ = DownloadV2TaskState(task$);
+  const ready_ = computed(state_, (state) => state.is_completed);
+  return View(
+    {
+      type: "button",
+      class: computed(ready_, (ready) =>
+        ["dl-page-task-action", ready ? "" : "is-disabled"].filter(Boolean).join(" "),
+      ),
+      attributes: {
+        type: "button",
+        title: computed(ready_, (ready) =>
+          ready ? "下载到本机" : "视频还没下载完成",
+        ),
+        "aria-label": "下载到本机",
+        "aria-disabled": computed(ready_, (ready) => (ready ? "false" : "true")),
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        if (!ready_.value) return;
+        vm$.methods.downloadTaskFile(task$);
+      },
+    },
+    [Timeless.Icon({ name: "download", size: 18 })],
+  );
+}
+
+function DownloadV2TranscriptAction(props) {
+  const { store: vm$, task: task$ } = props;
+  const job_ = computed(vm$.state.transcript_jobs, (jobs) => {
+    const raw = task$.state.raw && task$.state.raw.value;
+    const id = String((raw && raw.id) || "");
+    return (jobs && jobs[id]) || "";
+  });
+  return View(
+    {
+      type: "button",
+      class: computed(job_, (job) =>
+        ["dl-page-task-action", job === "loading" ? "is-loading" : ""]
+          .filter(Boolean)
+          .join(" "),
+      ),
+      attributes: {
+        type: "button",
+        title: computed(job_, (job) =>
+          job === "loading" ? "提取中" : job === "ready" ? "查看文案" : "文案提取",
+        ),
+        "aria-label": computed(job_, (job) =>
+          job === "loading" ? "提取中" : job === "ready" ? "查看文案" : "文案提取",
+        ),
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        if (job_.value === "loading") return;
+        vm$.methods.openTranscript(task$);
+      },
+    },
+    [Timeless.Icon({ name: "scroll-text", size: 18 })],
+  );
+}
+
+function DownloadV2ReverseIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({ attributes: { d: "M3 7V5a2 2 0 0 1 2-2h2" } }),
+      SVG.Path({ attributes: { d: "M17 3h2a2 2 0 0 1 2 2v2" } }),
+      SVG.Path({ attributes: { d: "M21 17v2a2 2 0 0 1-2 2h-2" } }),
+      SVG.Path({ attributes: { d: "M7 21H5a2 2 0 0 1-2-2v-2" } }),
+      SVG.Circle({ attributes: { cx: "12", cy: "12", r: "3" } }),
+      SVG.Path({ attributes: { d: "m16 16-1.9-1.9" } }),
+    ],
+  );
+}
+
+function DownloadV2ReverseAction(props) {
+  const { store: vm$, task: task$ } = props;
+  const job_ = computed(vm$.state.reverse_jobs, (jobs) => {
+    const raw = task$.state.raw && task$.state.raw.value;
+    const id = String((raw && raw.id) || "");
+    return (jobs && jobs[id]) || "";
+  });
+  return View(
+    {
+      type: "button",
+      class: computed(job_, (job) =>
+        ["dl-page-task-action", job === "loading" ? "is-loading" : ""]
+          .filter(Boolean)
+          .join(" "),
+      ),
+      attributes: {
+        type: "button",
+        title: computed(job_, (job) =>
+          job === "loading" ? "反推中" : job === "ready" ? "查看反推" : "视频反推",
+        ),
+        "aria-label": computed(job_, (job) =>
+          job === "loading" ? "反推中" : job === "ready" ? "查看反推" : "视频反推",
+        ),
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        if (job_.value === "loading") return;
+        vm$.methods.openReverse(task$);
+      },
+    },
+    [DownloadV2ReverseIcon()],
+  );
+}
+
+function DownloadV2WhiteModelIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        class: "lucide lucide-box",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({
+        attributes: {
+          d: "M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z",
+        },
+      }),
+      SVG.Path({
+        attributes: { d: "m3.3 7 8.7 5 8.7-5" },
+      }),
+      SVG.Path({
+        attributes: { d: "M12 22V12" },
+      }),
+    ],
+  );
+}
+
+function DownloadV2WhiteModelAction(props) {
+  const { store: vm$, task: task$ } = props;
+  const job_ = computed(vm$.state.white_model_jobs, (jobs) => {
+    const raw = task$.state.raw && task$.state.raw.value;
+    const id = String((raw && raw.id) || "");
+    return (jobs && jobs[id]) || "";
+  });
+  return View(
+    {
+      type: "button",
+      class: computed(job_, (job) =>
+        ["dl-page-task-action", job === "loading" ? "is-loading" : ""]
+          .filter(Boolean)
+          .join(" "),
+      ),
+      attributes: {
+        type: "button",
+        title: computed(job_, (job) =>
+          job === "loading" ? "转换中" : job === "ready" ? "查看白模" : "转白模",
+        ),
+        "aria-label": computed(job_, (job) =>
+          job === "loading" ? "转换中" : job === "ready" ? "查看白模" : "转白模",
+        ),
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        vm$.methods.openWhiteModel(task$);
+      },
+    },
+    [DownloadV2WhiteModelIcon()],
+  );
 }
 
 export function DownloadV2TaskMain(props) {
@@ -684,6 +888,14 @@ export function DownloadV2TaskSkeletonRow() {
           DownloadV2Skeleton({
             class: "dl-skeleton-action",
             attributes: { n: "download-task-skeleton-primary-action" },
+          }),
+          DownloadV2Skeleton({
+            class: "dl-skeleton-action",
+            attributes: { n: "download-task-skeleton-save-action" },
+          }),
+          DownloadV2Skeleton({
+            class: "dl-skeleton-action",
+            attributes: { n: "download-task-skeleton-transcript-action" },
           }),
           DownloadV2Skeleton({
             class: "dl-skeleton-action",
@@ -1337,6 +1549,831 @@ function DeleteFilesControl(props) {
       vm$.methods.handleClickCheckboxConfirmDeleteFiles();
     },
   });
+}
+
+export function DownloadV2FileURLDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.fileUrlDialog$,
+      class: "dl-page-file-url-dialog",
+      attributes: { n: "download-file-url-dialog" },
+    },
+    () => [
+      DownloadV2DialogHeading({
+        title: "源站下载地址",
+        description: vm$.state.file_url_title,
+      }),
+      DialogBody(
+        {
+          class: "dl-page-file-url-body",
+          attributes: { n: "download-file-url-body" },
+        },
+        [
+          View(
+            {
+              class: "dl-page-file-url",
+              attributes: { n: "download-file-url" },
+            },
+            [
+              computed(vm$.state.file_url, (url) =>
+                url ? url : "没有保存源站下载地址。",
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "dl-page-transcript-actions",
+              attributes: { n: "download-file-url-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_file_url_copy$,
+                  attributes: { n: "download-file-url-copy" },
+                },
+                ["复制地址"],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+export function DownloadV2ReverseDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.reverseDialog$,
+      class: "dl-page-transcript-dialog",
+      attributes: { n: "download-reverse-dialog" },
+    },
+    () => [
+      DownloadV2DialogHeading({
+        title: vm$.state.reverse_title,
+        description: vm$.state.reverse_message,
+      }),
+      DialogBody(
+        {
+          class: "dl-page-transcript-body",
+          attributes: { n: "download-reverse-body" },
+        },
+        [
+          View(
+            {
+              class: "dl-page-transcript-text",
+              attributes: { n: "download-reverse-text" },
+            },
+            [
+              computed(vm$.state.reverse_text, (text) =>
+                text ? text : "反推结果会显示在这里。",
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "dl-page-transcript-actions",
+              attributes: { n: "download-reverse-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_reverse_copy$,
+                  attributes: { n: "download-reverse-copy" },
+                },
+                ["复制结论"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_reverse_open$,
+                  attributes: { n: "download-reverse-open" },
+                },
+                ["打开报告"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_reverse_rerun$,
+                  attributes: { n: "download-reverse-rerun" },
+                },
+                ["重新反推"],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+export function DownloadV2TranscriptDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.transcriptDialog$,
+      class: "dl-page-transcript-dialog",
+      attributes: { n: "download-transcript-dialog" },
+    },
+    () => [
+      DownloadV2DialogHeading({
+        title: vm$.state.transcript_title,
+        description: vm$.state.transcript_message,
+      }),
+      DialogBody(
+        {
+          class: "dl-page-transcript-body",
+          attributes: { n: "download-transcript-body" },
+        },
+        [
+          View(
+            {
+              class: "dl-page-transcript-text",
+              attributes: { n: "download-transcript-text" },
+            },
+            [
+              computed(vm$.state.transcript_text, (text) =>
+                text ? text : "文案会显示在这里。",
+              ),
+            ],
+          ),
+          View(
+            {
+              class: "dl-page-transcript-actions",
+              attributes: { n: "download-transcript-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_transcript_copy$,
+                  attributes: { n: "download-transcript-copy" },
+                },
+                ["复制文案"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_transcript_rerun$,
+                  attributes: { n: "download-transcript-rerun" },
+                },
+                ["重新提取"],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
+function WhiteModelSlider(props) {
+  const value_ = props.value;
+  let unlisten = null;
+  return View(
+    {
+      class: "white-model-control",
+      attributes: { n: props.name },
+    },
+    [
+      View({ class: "white-model-control-label" }, [props.label]),
+      View({ class: "white-model-control-range" }, [
+        View({
+          class: "white-model-control-slot",
+          onMounted(event) {
+            const root = event.target.get$elm();
+            const input = root.ownerDocument.createElement("input");
+            input.type = "range";
+            input.min = "0";
+            input.max = "100";
+            input.step = "1";
+            input.value = String(value_.value ?? props.fallback);
+            input.setAttribute("aria-label", props.label);
+            input.addEventListener("input", () => {
+              value_.as(Number(input.value));
+            });
+            unlisten = value_.subscribe({
+              onChange(value) {
+                const next = String(value);
+                if (input.value !== next && root.ownerDocument.activeElement !== input) {
+                  input.value = next;
+                }
+              },
+            });
+            root.replaceChildren(input);
+          },
+          onUnmounted() {
+            if (typeof unlisten === "function") unlisten();
+            unlisten = null;
+          },
+        }),
+        View({ class: "white-model-control-value" }, [
+          computed(value_, (value) => String(value ?? props.fallback)),
+        ]),
+      ]),
+    ],
+  );
+}
+
+function WhiteModelDetailOptions(props) {
+  const options = [
+    { value: 480, label: "更快" },
+    { value: 640, label: "标准" },
+    { value: 960, label: "更清晰" },
+  ];
+  return View({ class: "white-model-control" }, [
+    View({ class: "white-model-control-label" }, ["清晰度"]),
+    View(
+      { class: "white-model-detail" },
+      options.map((option) =>
+        View(
+          {
+            type: "button",
+            class: computed(props.value, (current) =>
+              Number(current) === option.value
+                ? "white-model-detail-option is-active"
+                : "white-model-detail-option",
+            ),
+            attributes: { type: "button", "aria-label": `清晰度 ${option.label}` },
+            onClick() {
+              props.value.as(option.value);
+            },
+          },
+          [option.label],
+        ),
+      ),
+    ),
+  ]);
+}
+
+export function WhiteModelControls(props) {
+  const vm$ = props.store;
+  const running_ = computed(vm$.state.white_model_progress, (value) => Number(value) >= 0);
+  return View(
+    {
+      class: computed(running_, (running) =>
+        running ? "white-model-controls is-disabled" : "white-model-controls",
+      ),
+      attributes: { n: "white-model-controls" },
+    },
+    [
+      WhiteModelSlider({
+        name: "white-model-contrast",
+        label: "对比",
+        value: vm$.state.white_model_contrast,
+        fallback: 50,
+      }),
+      WhiteModelSlider({
+        name: "white-model-relief",
+        label: "体积",
+        value: vm$.state.white_model_relief,
+        fallback: 30,
+      }),
+      WhiteModelDetailOptions({ value: vm$.state.white_model_detail }),
+      View({ class: "white-model-controls-hint" }, [
+        "对比拉开远近的黑白，体积加强表面明暗。改完后点「重新转换」。已有深度时不会重新估计。",
+      ]),
+    ],
+  );
+}
+
+function DownloadV2RemakeIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({
+        attributes: {
+          d: "M20.2 6 3 11l-.9-2.4c-.3-1.1.3-2.2 1.3-2.5l13.5-4c1.1-.3 2.2.3 2.5 1.3Z",
+        },
+      }),
+      SVG.Path({ attributes: { d: "m6.2 5.3 3.1 3.9" } }),
+      SVG.Path({ attributes: { d: "m12.4 3.4 3.1 4" } }),
+      SVG.Path({
+        attributes: { d: "M3 11h18v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" },
+      }),
+    ],
+  );
+}
+
+function DownloadV2RemakeAction(props) {
+  const { store: vm$, task: task$ } = props;
+  const job_ = computed(vm$.state.remake_jobs, (jobs) => {
+    const raw = task$.state.raw && task$.state.raw.value;
+    const id = String((raw && raw.id) || "");
+    return (jobs && jobs[id]) || "";
+  });
+  return View(
+    {
+      type: "button",
+      class: computed(job_, (job) =>
+        ["dl-page-task-action", job === "loading" ? "is-loading" : ""]
+          .filter(Boolean)
+          .join(" "),
+      ),
+      attributes: {
+        type: "button",
+        title: computed(job_, (job) =>
+          job === "loading" ? "复刻中" : job === "ready" ? "查看复刻" : "视频复刻",
+        ),
+        "aria-label": computed(job_, (job) =>
+          job === "loading" ? "复刻中" : job === "ready" ? "查看复刻" : "视频复刻",
+        ),
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        vm$.methods.openRemake(task$);
+      },
+    },
+    [DownloadV2RemakeIcon()],
+  );
+}
+
+function RemakeChoice(props) {
+  function choice_state(value) {
+    const dynamic = typeof props.locked === "function";
+    const locked = dynamic ? Boolean(props.locked(value)) : Boolean(props.locked);
+    const picked =
+      typeof props.equals === "function"
+        ? Boolean(props.equals(value))
+        : value && typeof value === "object"
+          ? Boolean(value[props.value])
+          : value === props.value;
+    const selected = dynamic ? !locked && picked : locked || picked;
+    return { locked, selected };
+  }
+  return View(
+    {
+      type: "button",
+      class: computed(props.current, (value) => {
+        const state = choice_state(value);
+        return [
+          "white-model-detail-option",
+          state.selected ? "is-active" : "",
+          state.locked ? "is-locked" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+      }),
+      attributes: {
+        type: "button",
+        disabled: computed(props.current, (value) =>
+          choice_state(value).locked ? "disabled" : undefined,
+        ),
+        "aria-disabled": computed(props.current, (value) =>
+          choice_state(value).locked ? "true" : "false",
+        ),
+        "aria-pressed": computed(props.current, (value) =>
+          choice_state(value).selected ? "true" : "false",
+        ),
+      },
+      onClick() {
+        const value = props.current && props.current.value;
+        if (choice_state(value).locked || typeof props.onPick !== "function") return;
+        props.onPick(props.value);
+      },
+    },
+    [props.label],
+  );
+}
+
+function RemakeShotStrip(props) {
+  const vm$ = props.store;
+  return View({ class: "remake-shots-block" }, [
+    View({ class: "remake-form-label" }, ["拉片"]),
+    View({ class: "white-model-detail" }, [
+      View(
+        {
+          type: "button",
+          class: computed(vm$.state.remake_shot_mode, (mode) =>
+            mode === "plot"
+              ? "white-model-detail-option"
+              : "white-model-detail-option is-active",
+          ),
+          attributes: { type: "button" },
+          onClick() {
+            vm$.methods.pickRemakeShotMode("scene");
+          },
+        },
+        ["按镜头"],
+      ),
+      View(
+        {
+          type: "button",
+          class: computed(vm$.state.remake_shot_mode, (mode) =>
+            mode === "plot"
+              ? "white-model-detail-option is-active"
+              : "white-model-detail-option",
+          ),
+          attributes: { type: "button" },
+          onClick() {
+            vm$.methods.pickRemakeShotMode("plot");
+          },
+        },
+        ["按情节"],
+      ),
+      View(
+        {
+          type: "button",
+          class: "white-model-detail-option",
+          attributes: {
+            type: "button",
+            n: "download-remake-shots",
+            disabled: computed(vm$.state.remake_shot_busy, (busy) =>
+              busy ? "disabled" : undefined,
+            ),
+          },
+          onClick() {
+            vm$.methods.runRemakeShots();
+          },
+        },
+        [computed(vm$.state.remake_shot_busy, (busy) => (busy ? "正在拉片" : "开始拉片"))],
+      ),
+    ]),
+    View({ class: "white-model-controls-hint" }, [vm$.state.remake_shot_message]),
+    View({ class: "remake-shots" }, [
+      For({
+        each: vm$.state.remake_shots,
+        key: "id",
+        render(shot) {
+          return View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_shots, (shots) => {
+                const current = Array.isArray(shots)
+                  ? shots.find((item) => item.id === shot.id)
+                  : null;
+                return current && current.selected ? "remake-shot is-selected" : "remake-shot";
+              }),
+              attributes: { type: "button", title: shot.caption || "关键帧" },
+              onClick() {
+                vm$.methods.pickRemakeShot(shot);
+              },
+            },
+            [
+              Img({
+                class: "remake-shot-image",
+                src: shot.url,
+                alt: shot.caption || "关键帧",
+              }),
+              View({ class: "remake-shot-caption" }, [shot.caption || ""]),
+            ],
+          );
+        },
+      }),
+    ]),
+  ]);
+}
+
+function RemakeFileField(props) {
+  return View({ class: "remake-file" }, [
+    View({ class: "remake-file-label" }, [props.label]),
+    View({
+      class: "remake-file-slot",
+      onMounted(event) {
+        const root = event.target.get$elm();
+        const input = root.ownerDocument.createElement("input");
+        input.type = "file";
+        input.accept = props.accept;
+        input.setAttribute("aria-label", props.label);
+        input.addEventListener("change", () => {
+          const file = input.files && input.files[0];
+          props.onFile(file || null);
+        });
+        root.replaceChildren(input);
+      },
+    }),
+    View({ class: "remake-file-name" }, [props.name]),
+  ]);
+}
+
+export function DownloadV2RemakeDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.remakeDialog$,
+      class: "dl-page-white-model-dialog",
+      attributes: { n: "download-remake-dialog" },
+    },
+    () => [
+      DownloadV2DialogHeading({
+        title: vm$.state.remake_title,
+        description: vm$.state.remake_message,
+      }),
+      DialogBody(
+        {
+          class: "dl-page-white-model-body",
+          attributes: { n: "download-remake-body" },
+        },
+        [
+          Show({
+            when: computed(vm$.state.remake_progress, (value) => Number(value) >= 0),
+            ok() {
+              return View(
+                { class: "dl-page-white-model-progress" },
+                [
+                  View({
+                    class: "dl-page-white-model-progress-bar",
+                    style: computed(vm$.state.remake_progress, (value) => ({
+                      width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`,
+                    })),
+                  }),
+                ],
+              );
+            },
+          }),
+          Show({
+            when: computed(vm$.state.remake_url, (url) => Boolean(url)),
+            ok() {
+              return Timeless.Video({
+                class: "dl-page-white-model-video",
+                src: vm$.state.remake_url,
+                controls: true,
+                playsInline: true,
+                preload: "metadata",
+                attributes: { n: "download-remake-video" },
+              });
+            },
+            else() {
+              return View(
+                { class: "dl-page-white-model-empty" },
+                ["5 秒预览会显示在这里。"],
+              );
+            },
+          }),
+          View({ class: "remake-form" }, [
+            View({ class: "remake-form-label" }, ["模型"]),
+            View({ class: "white-model-detail" }, [
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "mu-video",
+                label: "MU Video",
+                equals(value) {
+                  const model = value && value.model;
+                  return !model || (model !== "hailuo" && model !== "hailuo-2-3");
+                },
+                onPick: vm$.methods.pickRemakeModel,
+              }),
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "hailuo-2-3",
+                label: "Hailuo 2.3",
+                equals(value) {
+                  return Boolean(value && value.model === "hailuo-2-3");
+                },
+                onPick: vm$.methods.pickRemakeModel,
+              }),
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "hailuo",
+                label: "Hailuo H3",
+                equals(value) {
+                  return Boolean(value && value.model === "hailuo");
+                },
+                onPick: vm$.methods.pickRemakeModel,
+              }),
+            ]),
+            View({ class: "remake-form-label" }, ["参考视频"]),
+            View({ class: "white-model-detail" }, [
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "source",
+                label: "原始视频",
+                locked(value) {
+                  const model = value && value.model;
+                  return !model || model === "mu-video" || model === "hailuo-2-3";
+                },
+                onPick: vm$.methods.pickRemakeReference,
+              }),
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "white",
+                label: "白模视频",
+                locked(value) {
+                  const model = value && value.model;
+                  if (!model || model === "mu-video" || model === "hailuo-2-3") return true;
+                  return !(value && value.whiteReady);
+                },
+                onPick: vm$.methods.pickRemakeReference,
+              }),
+            ]),
+            RemakeShotStrip({ store: vm$ }),
+            RemakeFileField({
+              label: "参考图",
+              accept: "image/png,image/jpeg,image/webp",
+              name: vm$.state.remake_image_name,
+              onFile: vm$.methods.pickRemakeImage,
+            }),
+            View({ class: "remake-note" }, [
+              View({ class: "remake-form-label" }, ["你的提示词"]),
+              Textarea({
+                store: vm$.ui.input_remake_note$,
+                attributes: {
+                  n: "download-remake-note",
+                  rows: "4",
+                },
+              }),
+            ]),
+            View({ class: "white-model-controls-hint" }, [
+              computed(vm$.state.remake_reference, (value) => {
+                const selected = value && typeof value === "object" ? value : {};
+                if (selected.model === "hailuo-2-3") {
+                  return "Hailuo 2.3 不能上传参考视频。参考图从拉片里选，或自己上传。没选时按文字生成 6 秒，提示词不超过 2000 字。选了参考图就作为首帧，不再抽帧。";
+                }
+                if (selected.model !== "hailuo") {
+                  return "MU Video 不能上传参考视频，价格更低。参考图从拉片里选，或自己上传。没选时按文字生成，提示词仍按原始视频抽帧来写。选了参考图就只用这张图，不再抽帧。";
+                }
+                const parts = ["没有参考图时，提示词按原始视频抽帧来写", "添加了参考图就按参考图来写，不再抽帧"];
+                if (!selected.source) parts.push("不勾选时原片不会上传，仍可生成预览");
+                if (!selected.whiteReady) parts.push("白模生成后才能勾选");
+                else if (selected.white) parts.push("白模只额外对齐动作，不改这段解析");
+                return `${parts.join("，")}。每段取前 5 秒。`;
+              }),
+            ]),
+            Show({
+              when: computed(vm$.state.remake_prompt, (text) =>
+                Boolean(String(text || "").trim()),
+              ),
+              ok() {
+                return View({ class: "remake-prompt" }, [
+                  View({ class: "remake-form-label" }, ["最终提示词"]),
+                  View({ class: "remake-prompt-text" }, [vm$.state.remake_prompt]),
+                ]);
+              },
+            }),
+          ]),
+          View({ class: "dl-page-transcript-actions" }, [
+            Button(
+              {
+                store: vm$.ui.btn_remake_download$,
+                attributes: { n: "download-remake-download" },
+              },
+              ["下载预览"],
+            ),
+            Button(
+              {
+                store: vm$.ui.btn_remake_prompt$,
+                attributes: { n: "download-remake-prompt" },
+              },
+              ["提示词预览"],
+            ),
+            Button(
+              {
+                store: vm$.ui.btn_remake_run$,
+                attributes: { n: "download-remake-run" },
+              },
+              [
+                computed(
+                  combine(
+                    { url: vm$.state.remake_url, reference: vm$.state.remake_reference },
+                    (state) => {
+                      const model = state.reference && state.reference.model;
+                      const seconds = model === "hailuo-2-3" ? "6" : "5";
+                      return state.url ? "重新预览" : `生成 ${seconds} 秒预览`;
+                    },
+                  ),
+                  (label) => label,
+                ),
+              ],
+            ),
+          ]),
+        ],
+      ),
+    ],
+  );
+}
+
+export function DownloadV2WhiteModelDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.whiteModelDialog$,
+      class: "dl-page-white-model-dialog",
+      attributes: { n: "download-white-model-dialog" },
+    },
+    () => [
+      DownloadV2DialogHeading({
+        title: vm$.state.white_model_title,
+        description: vm$.state.white_model_message,
+      }),
+      DialogBody(
+        {
+          class: "dl-page-white-model-body",
+          attributes: { n: "download-white-model-body" },
+        },
+        [
+          Show({
+            when: computed(vm$.state.white_model_progress, (value) => Number(value) >= 0),
+            ok() {
+              return View(
+                {
+                  class: "dl-page-white-model-progress",
+                  attributes: { n: "download-white-model-progress" },
+                },
+                [
+                  View({
+                    class: "dl-page-white-model-progress-bar",
+                    style: computed(vm$.state.white_model_progress, (value) => ({
+                      width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`,
+                    })),
+                  }),
+                ],
+              );
+            },
+          }),
+          Show({
+            when: computed(vm$.state.white_model_url, (url) => Boolean(url)),
+            ok() {
+              return Timeless.Video({
+                class: "dl-page-white-model-video",
+                src: vm$.state.white_model_url,
+                controls: true,
+                playsInline: true,
+                preload: "metadata",
+                attributes: { n: "download-white-model-video" },
+              });
+            },
+            else() {
+              return Show({
+                when: computed(vm$.state.white_model_error, (value) =>
+                  Boolean(String(value || "").trim()),
+                ),
+                ok() {
+                  return View(
+                    {
+                      class: "dl-page-white-model-raw",
+                      attributes: { n: "download-white-model-raw" },
+                    },
+                    [
+                      View(
+                        { class: "dl-page-white-model-raw-label" },
+                        ["原始报错"],
+                      ),
+                      View(
+                        {
+                          as: "pre",
+                          class: "dl-page-white-model-raw-text",
+                        },
+                        [vm$.state.white_model_error],
+                      ),
+                    ],
+                  );
+                },
+                else() {
+                  return View(
+                    {
+                      class: "dl-page-white-model-empty",
+                      attributes: { n: "download-white-model-empty" },
+                    },
+                    ["白模视频会显示在这里。"],
+                  );
+                },
+              });
+            },
+          }),
+          WhiteModelControls({ store: vm$ }),
+          View(
+            {
+              class: "dl-page-transcript-actions",
+              attributes: { n: "download-white-model-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_white_model_download$,
+                  attributes: { n: "download-white-model-download" },
+                },
+                ["下载白模"],
+              ),
+              Button(
+                {
+                  store: vm$.ui.btn_white_model_run$,
+                  attributes: { n: "download-white-model-run" },
+                },
+                [
+                  computed(vm$.state.white_model_url, (url) =>
+                    url ? "重新转换" : "转白模",
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 export function TaskDeleteConfirmDialog(props) {

@@ -1,0 +1,107 @@
+/* 视频工厂外壳的颜色。登录页在同目录的 login.css。 */
+:root,
+html,
+body,
+.dark,
+html.dark {
+  --dm-color-bg-canvas: #07090e;
+  --dm-color-bg-surface: #12151e;
+  --dm-color-bg-subtle: #181c27;
+  --dm-color-bg-interactive: #222838;
+  --dm-color-bg-popup: #10131b;
+  --dm-color-bg-inverse: #07090e;
+  --dm-color-text-primary: #f3f6fb;
+  --dm-color-text-secondary: #9aa3b4;
+  --dm-color-text-disabled: #6d7686;
+  --dm-color-border: rgba(255, 255, 255, 0.1);
+  --dm-color-border-strong: rgba(255, 255, 255, 0.18);
+  --dm-color-border-translucent: rgba(255, 255, 255, 0.08);
+  --dm-color-primary: #9ae7ff;
+  --dm-color-primary-hover: #d7f6ff;
+  --dm-color-primary-fill: #2d6bff;
+  --dm-color-primary-fill-hover: #3a74ff;
+  --dm-color-on-primary: #ffffff;
+  --dm-color-primary-soft: rgba(45, 107, 255, 0.18);
+  --dm-color-primary-border: rgba(154, 231, 255, 0.35);
+  --dm-color-primary-border-strong: rgba(45, 107, 255, 0.7);
+  --dm-color-signal: #9ae7ff;
+  --dm-color-signal-soft: rgba(154, 231, 255, 0.14);
+  --dm-color-sidebar-border: rgba(255, 255, 255, 0.08);
+  --dm-color-focus-ring: rgba(45, 107, 255, 0.4);
+  --dm-brand-sidebar: #0c0e14;
+  --dm-brand-sidebar-hover: rgba(255, 255, 255, 0.06);
+  --dm-brand-sidebar-text: #f3f6fb;
+  --dm-brand-sidebar-muted: #9aa3b4;
+  --dm-content-bg: #07090e;
+  color-scheme: dark;
+}
+
+html,
+body,
+.app-shell,
+.app-content,
+.page {
+  background-color: #07090e;
+  color: #f3f6fb;
+}
+
+.app-shell {
+  background-image:
+    linear-gradient(rgba(160, 190, 230, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160, 190, 230, 0.045) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+.app-brand {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-areas:
+    "mark name"
+    "mark version";
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+}
+
+.app-brand__mark { grid-area: mark; }
+.app-brand__name {
+  grid-area: name;
+  white-space: nowrap;
+}
+.app-brand__version {
+  grid-area: version;
+  position: static;
+}
+
+.app-sider {
+  background: rgba(12, 14, 20, 0.92);
+  border-right-color: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  backdrop-filter: blur(16px);
+}
+
+.app-brand__mark {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  background: linear-gradient(145deg, #3a74ff, #1d4ed8);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.app-brand__name {
+  min-width: 0;
+  color: #f3f6fb;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.dm-button--sidebar-nav.is-active {
+  color: #fff;
+  background: rgba(45, 107, 255, 0.28);
+}

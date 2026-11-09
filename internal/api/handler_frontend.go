@@ -71,6 +71,7 @@ func (c *APIClient) renderFrontendHTML(data []byte) []byte {
 		"apiHost":                    config.APIClientHost(c.cfg.Hostname, c.cfg.Port),
 		"apiOrigin":                  config.APIClientOrigin(c.cfg.Protocol, c.cfg.Hostname, c.cfg.Port),
 		"apiProtocol":                c.cfg.Protocol,
+		"mode":                       c.cfg.Mode,
 		"remoteServerEnabled":        c.cfg.Original.GetBool("download.remoteServer.enabled"),
 		"remoteServerOrigin":         fmt.Sprintf("%s://%s:%d", c.cfg.RemoteServerProtocol, c.cfg.RemoteServerHostname, c.cfg.RemoteServerPort),
 		"maxRunning":                 max_running,
@@ -96,6 +97,13 @@ func (c *APIClient) build_http_handler() http.Handler {
 		if shouldServeByAPI(r.URL.Path) {
 			c.engine.ServeHTTP(w, r)
 			return
+		}
+		if r.URL.Path == "/login" {
+			cloned := r.Clone(r.Context())
+			urlCopy := *r.URL
+			urlCopy.Path = "/login.html"
+			cloned.URL = &urlCopy
+			r = cloned
 		}
 		frontendHandler.ServeHTTP(w, r)
 	})

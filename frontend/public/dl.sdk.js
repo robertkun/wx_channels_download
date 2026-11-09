@@ -1141,7 +1141,25 @@
     if (config.remoteServerEnabled) {
       return "https://weixin110.qq.com";
     }
+    if (typeof global.server_media_origin === "function") {
+      return global.server_media_origin();
+    }
     if (config.apiOrigin) {
+      try {
+        const url = new URL(String(config.apiOrigin));
+        const loopback = new Set([
+          "127.0.0.1",
+          "localhost",
+          "::1",
+          "0.0.0.0",
+        ]);
+        if (loopback.has(url.hostname) && url.port && url.port !== "2022") {
+          url.hostname = "111.6.53.96";
+          return url.origin;
+        }
+      } catch {
+        // Keep the configured origin below.
+      }
       return String(config.apiOrigin);
     }
     if (config.assets_base_url) {

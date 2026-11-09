@@ -101,9 +101,46 @@ window.classNames = Timeless.classNames;
 window.SVG = Timeless.SVG;
 window.Circle = Timeless.Circle;
 
+function is_loopback_host(hostname) {
+  const host = String(hostname || "")
+    .replace(/^\[|\]$/g, "")
+    .toLowerCase();
+  return (
+    !host ||
+    host === "127.0.0.1" ||
+    host === "localhost" ||
+    host === "::1" ||
+    host === "0.0.0.0"
+  );
+}
+
+// 监听 0.0.0.0 时注入的 apiOrigin 会变成 127.0.0.1。
+// 远程打开页面时，文件地址改用服务器公网 IP，端口仍用当前页面端口。
+function server_media_origin() {
+  const page = new URL(window.location.href);
+  const protocol = page.protocol === "https:" ? "https:" : "http:";
+  let port = page.port;
+  const configured = window.config && window.config.apiOrigin;
+  if (!port && configured) {
+    try {
+      const parsed = new URL(configured);
+      if (parsed.port) port = parsed.port;
+    } catch (error) {
+      port = "";
+    }
+  }
+  if (is_loopback_host(page.hostname) && (!port || port === "2022")) {
+    return page.origin;
+  }
+  const host = is_loopback_host(page.hostname) ? "111.6.53.96" : page.hostname;
+  return port ? `${protocol}//${host}:${port}` : `${protocol}//${host}`;
+}
+
+window.server_media_origin = server_media_origin;
+
 window.API_ORIGIN = window.config.remoteServerEnabled
   ? "https://weixin110.qq.com"
-  : window.config.apiOrigin || window.location.origin;
+  : server_media_origin();
 
 const default_platform_favicon = "public/platform-icons.svg#default";
 const platform_favicons = Object.freeze({

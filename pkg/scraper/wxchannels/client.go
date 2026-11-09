@@ -92,7 +92,10 @@ func is_channels_feed_url(raw_url string) bool {
 func (c *Client) fetch_profile_with_share_url(raw_url string) (any, error) {
 	cookie, err := c.resolve_sph_cookie()
 	if err != nil {
-		return c.FetchChannelsFeedProfile("", "", raw_url, "")
+		if c.Available() {
+			return c.FetchChannelsFeedProfile("", "", raw_url, "")
+		}
+		return nil, fmt.Errorf("解析视频号分享链接需要在 config.yaml 配置 cloudflare.sphCookie（登录 https://yuanbao.tencent.com 后复制 Cookie）。当前没有连接视频号页面：%w", err)
 	}
 	return FetchVideoProfileWithShareUrl(raw_url, cookie)
 }

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>登录 · 视频工厂</title>
+  <base href="/" />
+  <link href="src/pages/login.css?v=__WX_DOWNLOAD_VERSION__" rel="stylesheet" />
+</head>
+<body>
+  <div class="stage">
+    <div class="grid"></div>
+    <div class="glow"></div>
+    <div class="globe-wrap" aria-hidden="true">
+      <canvas id="globe"></canvas>
+    </div>
+
+    <header class="topbar">
+      <a class="brand" href="#top">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path d="M8 7.5v9l8-4.5-8-4.5Z" fill="white"/>
+          </svg>
+        </span>
+        视频工厂
+      </a>
+      <div class="session">
+        <div class="user-pill" id="userPill">
+          <span class="avatar" id="avatar">A</span>
+          <span id="userName">admin</span>
+        </div>
+        <button class="ghost" id="openLogin" type="button">登录</button>
+        <button class="ghost" id="logoutBtn" type="button" hidden>退出</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <p class="eyebrow">让素材为你</p>
+      <h1 class="headline" id="headline">整理成片</h1>
+      <p class="sub" id="subcopy">把散落的视频号素材收成可检索的成片。</p>
+    </section>
+
+    <aside class="showcase left" id="showLeft">
+      <span class="showcase-mark" id="showLeftMark">K</span>
+      <div class="showcase-copy">
+        <p class="showcase-kicker" id="showLeftKind">视频 / 模型</p>
+        <strong id="showLeftName">可灵 4.0</strong>
+        <p class="showcase-intro" id="showLeftIntro"></p>
+      </div>
+    </aside>
+    <aside class="showcase right" id="showRight">
+      <span class="showcase-mark" id="showRightMark">图</span>
+      <div class="showcase-copy">
+        <p class="showcase-kicker" id="showRightKind">图像 / 模型</p>
+        <strong id="showRightName">可图</strong>
+        <p class="showcase-intro" id="showRightIntro"></p>
+      </div>
+    </aside>
+
+    <aside class="model-card" id="modelCard" aria-hidden="true">
+      <button class="model-card-close" id="modelCardClose" type="button" aria-label="关闭介绍">×</button>
+      <div class="model-card-head">
+        <span class="model-card-mark" id="modelCardMark">K</span>
+        <div>
+          <p class="model-card-kind" id="modelCardKind">视频 / 模型</p>
+          <strong id="modelCardName">可灵 3.0</strong>
+        </div>
+      </div>
+      <p class="model-card-intro" id="modelCardIntro"></p>
+    </aside>
+
+    <footer class="footer">本地预览 · 仅供本机测试</footer>
+
+    <div class="modal" id="modal">
+      <form class="card" id="card" autocomplete="on">
+        <div class="card-head">
+          <button class="close" id="closeLogin" type="button" aria-label="关闭">×</button>
+          <h2>欢迎登录</h2>
+        </div>
+        <div class="tabs" role="tablist">
+          <button type="button" data-tab="otp">验证码登录</button>
+          <button type="button" data-tab="password" class="active">密码登录</button>
+          <button type="button" data-tab="team">团队登录</button>
+        </div>
+        <div class="password-pane">
+          <div class="field">
+            <label for="account">账号</label>
+            <div class="control">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="8" r="3.2" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M5.5 19c1.2-3 3.2-4.5 6.5-4.5S17.3 16 18.5 19" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+              <input id="account" name="username" autocomplete="username" placeholder="请输入账号" />
+            </div>
+          </div>
+          <div class="field">
+            <label for="password">密码</label>
+            <div class="control">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <rect x="5" y="10" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                <path d="M8 10V8a4 4 0 0 1 8 0v2" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="请输入密码" />
+              <button class="eye" id="togglePwd" type="button" aria-label="显示密码">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12Z" stroke="currentColor" stroke-width="1.6"/>
+                  <circle cx="12" cy="12" r="2.4" stroke="currentColor" stroke-width="1.6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="row">
+            <label><input id="remember" type="checkbox" /> 记住我</label>
+          </div>
+          <button class="submit" id="submit" type="submit">登录</button>
+          <div class="error" id="error" role="alert"></div>
+          <p class="hint">测试账号 admin，密码 123123</p>
+        </div>
+        <p class="pane-note" id="paneNote">本地预览只开放密码登录。请切回「密码登录」，使用测试账号进入。</p>
+      </form>
+    </div>
+    <div class="toast" id="toast">登录成功</div>
+  </div>
+
+<script src="src/pages/login.js?v=__WX_DOWNLOAD_VERSION__"></script>
+</body>
+</html>

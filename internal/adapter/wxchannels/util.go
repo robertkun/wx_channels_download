@@ -78,6 +78,40 @@ func ObjectTitle(obj *wxchannels.ChannelsObject) string {
 	return strconv.FormatInt(time.Now().Unix(), 10)
 }
 
+const download_title_max_runes = 32
+
+// short_download_title keeps the first sentence of a video caption so the
+// saved filename stays readable. The full caption remains on the content record.
+func short_download_title(title string) string {
+	title = strings.TrimSpace(title)
+	if title == "" {
+		return title
+	}
+	short := title
+	if index := strings.IndexAny(short, "\r\n"); index >= 0 {
+		short = strings.TrimSpace(short[:index])
+	}
+	for _, separator := range []string{"。", "！", "？"} {
+		if index := strings.Index(short, separator); index > 0 {
+			short = strings.TrimSpace(short[:index])
+			break
+		}
+	}
+	short = strings.TrimRight(short, "，,、：:；; ")
+	runes := []rune(short)
+	if len(runes) > download_title_max_runes {
+		short = strings.TrimRight(strings.TrimSpace(string(runes[:download_title_max_runes])), "，,、：:；; ")
+	}
+	if short != "" {
+		return short
+	}
+	runes = []rune(title)
+	if len(runes) > download_title_max_runes {
+		return string(runes[:download_title_max_runes])
+	}
+	return title
+}
+
 // DecryptKey exposes the legacy channels conversion capability through the
 // registered handler, so callers do not need to import this package.
 func (a *ChannelsAdapter) DecryptKey(content_json json.RawMessage) (int, error) {

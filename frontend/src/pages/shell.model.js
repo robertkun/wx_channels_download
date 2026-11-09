@@ -544,10 +544,18 @@ function create_mcp_settings_model(client) {
   };
 }
 
+function show_tasks_menu() {
+  const config = window.config || window.__d_config || {};
+  return String(config.mode || "debug") !== "release";
+}
+
 export function ShellViewModel(props) {
   const menu_configs = [
-    { title: "下载", name: "root.shell.download", icon: "download" },
     { title: "Get", name: "root.shell.scraper", icon: "search" },
+    { title: "下载", name: "root.shell.download", icon: "download" },
+    show_tasks_menu()
+      ? { title: "任务", name: "root.shell.tasks", icon: "file-text" }
+      : null,
     { title: "内容", name: "root.shell.content", icon: "library" },
     {
       title: "浏览",
@@ -556,7 +564,7 @@ export function ShellViewModel(props) {
     },
     { title: "账号", name: "root.shell.account", icon: "user" },
     // { title: "日志", name: "root.shell.logs", icon: "user" },
-  ];
+  ].filter(Boolean);
   const menu$ = Timeless.kit.RouteMenusModel({
     view: props.view,
     history: props.history,

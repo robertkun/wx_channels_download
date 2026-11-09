@@ -98,6 +98,7 @@ cloudflare:
   workerName: "mp-rss-api"
   d1Name: "mp-rss-db"
   sphWorkerName: "sph"
+  # 元宝网页 Cookie。填写后，https://weixin.qq.com/sph/ 分享链接可在服务器解析，不需要打开视频号页面。
   sphCookie: ""
   sphCredential: ""
 
