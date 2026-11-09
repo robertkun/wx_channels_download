@@ -556,6 +556,9 @@ export function ShellViewModel(props) {
     show_tasks_menu()
       ? { title: "任务", name: "root.shell.tasks", icon: "file-text" }
       : null,
+    show_tasks_menu()
+      ? { title: "目录", name: "root.shell.repos", icon: "git-branch" }
+      : null,
     { title: "内容", name: "root.shell.content", icon: "library" },
     {
       title: "浏览",

@@ -200,6 +200,11 @@ const routes_configure = {
         pathname: "/tasks",
         component: lazy("src/pages/tasks.js", "src/pages/tasks.css"),
       },
+      repos: {
+        title: "目录",
+        pathname: "/repos",
+        component: lazy("src/pages/repos.js", "src/pages/repos.css"),
+      },
       scraper: {
         is_default: true,
         title: "内容抓取",
