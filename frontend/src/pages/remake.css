@@ -1,0 +1,67 @@
+@import "./downloadv2.css";
+
+/* 复刻页内容很长，必须自己滚动；不要套用 download 列表页的 overflow:hidden。 */
+.content-page.dl-page-remake-page,
+.dl-page-remake-page {
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  display: block;
+  background: var(--dm-color-bg-canvas, var(--dm-content-bg));
+  color: var(--dm-color-text-primary, var(--dm-content-text));
+}
+
+.dl-page-remake-page-panel {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 20px 24px 48px;
+  box-sizing: border-box;
+}
+
+.dl-page-remake-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.dl-page-remake-title {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.25;
+  font-weight: 700;
+  color: var(--dm-color-text-primary);
+}
+
+.dl-page-remake-subtitle {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.35;
+  font-weight: 550;
+  color: var(--dm-color-text-primary);
+}
+
+.dl-page-remake-description {
+  color: var(--dm-color-text-secondary);
+  font-size: var(--dm-font-size-sm, 0.9rem);
+  line-height: 1.5;
+}
+
+.dl-page-remake-page .dl-page-remake-body {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+}
+
+.dl-page-remake-page .dl-page-remake-panel {
+  color: var(--dm-color-text-primary);
+}
+
+.dl-page-remake-page .remake-story-list-block,
+.dl-page-remake-page .remake-story-list {
+  overflow: visible;
+}

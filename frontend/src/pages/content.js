@@ -9,7 +9,7 @@ import {
   createCheckboxStore,
 } from "../dmui.js";
 import { ContentViewModel } from "./content.model.js";
-import { DownloadV2RemakeDialog, WhiteModelControls } from "./downloadv2.components.js";
+import { ReverseFrameChoice, WhiteModelControls } from "./downloadv2.components.js";
 import ContentDetailPageView from "./content_detail.js";
 
 function ContentDetailDrawer(props) {
@@ -57,7 +57,6 @@ function ContentPageView(props) {
       ContentReverseDialog({ store: vm$ }),
       ContentFileURLDialog({ store: vm$ }),
       ContentWhiteModelDialog({ store: vm$ }),
-      DownloadV2RemakeDialog({ store: vm$ }),
       ContentDeleteDialog({ store: vm$ }),
       ContentDetailDrawer({
         store: vm$,
@@ -894,8 +893,12 @@ function ContentReverseVlmOption(props) {
         class: "content-reverse-hint",
         attributes: { n: "content-reverse-vlm-hint" },
       },
-      ["默认关闭。勾选后会看关键帧并写出每个镜头的提示词，不勾选则只拆镜头和声音。"],
+      ["默认关闭。勾选后默认看开头、中间、结尾 3 张；选全部会看每个镜头。不勾选则只拆镜头和声音。"],
     ),
+    ReverseFrameChoice({
+      frames: vm$.state.reverse_vlm_frames,
+      name: "content-reverse-frames",
+    }),
   ]);
 }
 

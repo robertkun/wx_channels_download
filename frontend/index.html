@@ -6,6 +6,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>视频工厂</title>
   <base href="/" />
+  <script>
+    try {
+      if (!sessionStorage.getItem("vf-auth-user") && !localStorage.getItem("vf-auth-user")) {
+        location.replace("/login");
+      }
+    } catch (e) {
+      location.replace("/login");
+    }
+  </script>
   <script type="importmap">
     {
       "imports": {

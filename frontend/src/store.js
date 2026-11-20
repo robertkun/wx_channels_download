@@ -195,6 +195,16 @@ const routes_configure = {
         component: lazy("src/pages/downloadv2.js", "src/pages/downloadv2.css"),
         // options: animated_route_options,
       },
+      remake: {
+        title: "视频复刻",
+        pathname: "/remake",
+        component: lazy("src/pages/remake.js", "src/pages/remake.css"),
+      },
+      analyze: {
+        title: "视频重绘",
+        pathname: "/analyze",
+        component: lazy("src/pages/analyze.js", "src/pages/remake.css"),
+      },
       tasks: {
         title: "任务",
         pathname: "/tasks",

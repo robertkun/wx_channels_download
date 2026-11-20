@@ -450,9 +450,8 @@ export function DownloadV2TaskActions(props) {
     }),
     DownloadV2SaveAction({ store: vm$, task: task$ }),
     DownloadV2TranscriptAction({ store: vm$, task: task$ }),
-    DownloadV2ReverseAction({ store: vm$, task: task$ }),
-    DownloadV2WhiteModelAction({ store: vm$, task: task$ }),
     DownloadV2RemakeAction({ store: vm$, task: task$ }),
+    DownloadV2AnalyzeAction({ store: vm$, task: task$ }),
     DownloadV2TaskActionButton({
       icon: "trash2",
       title: "删除",
@@ -527,137 +526,6 @@ function DownloadV2TranscriptAction(props) {
       },
     },
     [Timeless.Icon({ name: "scroll-text", size: 18 })],
-  );
-}
-
-function DownloadV2ReverseIcon() {
-  return SVG.SVG(
-    {
-      attributes: {
-        width: "18",
-        height: "18",
-        xmlns: "http://www.w3.org/2000/svg",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-width": "2",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        "aria-hidden": "true",
-      },
-    },
-    [
-      SVG.Path({ attributes: { d: "M3 7V5a2 2 0 0 1 2-2h2" } }),
-      SVG.Path({ attributes: { d: "M17 3h2a2 2 0 0 1 2 2v2" } }),
-      SVG.Path({ attributes: { d: "M21 17v2a2 2 0 0 1-2 2h-2" } }),
-      SVG.Path({ attributes: { d: "M7 21H5a2 2 0 0 1-2-2v-2" } }),
-      SVG.Circle({ attributes: { cx: "12", cy: "12", r: "3" } }),
-      SVG.Path({ attributes: { d: "m16 16-1.9-1.9" } }),
-    ],
-  );
-}
-
-function DownloadV2ReverseAction(props) {
-  const { store: vm$, task: task$ } = props;
-  const job_ = computed(vm$.state.reverse_jobs, (jobs) => {
-    const raw = task$.state.raw && task$.state.raw.value;
-    const id = String((raw && raw.id) || "");
-    return (jobs && jobs[id]) || "";
-  });
-  return View(
-    {
-      type: "button",
-      class: computed(job_, (job) =>
-        ["dl-page-task-action", job === "loading" ? "is-loading" : ""]
-          .filter(Boolean)
-          .join(" "),
-      ),
-      attributes: {
-        type: "button",
-        title: computed(job_, (job) =>
-          job === "loading" ? "反推中" : job === "ready" ? "查看反推" : "视频反推",
-        ),
-        "aria-label": computed(job_, (job) =>
-          job === "loading" ? "反推中" : job === "ready" ? "查看反推" : "视频反推",
-        ),
-      },
-      onClick(event) {
-        if (event && typeof event.stopPropagation === "function") {
-          event.stopPropagation();
-        }
-        if (job_.value === "loading") return;
-        vm$.methods.openReverse(task$);
-      },
-    },
-    [DownloadV2ReverseIcon()],
-  );
-}
-
-function DownloadV2WhiteModelIcon() {
-  return SVG.SVG(
-    {
-      attributes: {
-        width: "18",
-        height: "18",
-        xmlns: "http://www.w3.org/2000/svg",
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        "stroke-width": "2",
-        "stroke-linecap": "round",
-        "stroke-linejoin": "round",
-        class: "lucide lucide-box",
-        "aria-hidden": "true",
-      },
-    },
-    [
-      SVG.Path({
-        attributes: {
-          d: "M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z",
-        },
-      }),
-      SVG.Path({
-        attributes: { d: "m3.3 7 8.7 5 8.7-5" },
-      }),
-      SVG.Path({
-        attributes: { d: "M12 22V12" },
-      }),
-    ],
-  );
-}
-
-function DownloadV2WhiteModelAction(props) {
-  const { store: vm$, task: task$ } = props;
-  const job_ = computed(vm$.state.white_model_jobs, (jobs) => {
-    const raw = task$.state.raw && task$.state.raw.value;
-    const id = String((raw && raw.id) || "");
-    return (jobs && jobs[id]) || "";
-  });
-  return View(
-    {
-      type: "button",
-      class: computed(job_, (job) =>
-        ["dl-page-task-action", job === "loading" ? "is-loading" : ""]
-          .filter(Boolean)
-          .join(" "),
-      ),
-      attributes: {
-        type: "button",
-        title: computed(job_, (job) =>
-          job === "loading" ? "转换中" : job === "ready" ? "查看白模" : "转白模",
-        ),
-        "aria-label": computed(job_, (job) =>
-          job === "loading" ? "转换中" : job === "ready" ? "查看白模" : "转白模",
-        ),
-      },
-      onClick(event) {
-        if (event && typeof event.stopPropagation === "function") {
-          event.stopPropagation();
-        }
-        vm$.methods.openWhiteModel(task$);
-      },
-    },
-    [DownloadV2WhiteModelIcon()],
   );
 }
 
@@ -1602,6 +1470,37 @@ export function DownloadV2FileURLDialog(props) {
   );
 }
 
+export function ReverseFrameChoice(props) {
+  const frames_ = props.frames;
+  const name = props.name || "reverse-frames";
+  function option(value, label) {
+    return View(
+      {
+        type: "button",
+        class: computed(frames_, (current) =>
+          ["reverse-frame-option", current === value ? "is-active" : ""].filter(Boolean).join(" "),
+        ),
+        attributes: {
+          type: "button",
+          n: `${name}-${value}`,
+          "aria-pressed": computed(frames_, (current) => (current === value ? "true" : "false")),
+        },
+        onClick() {
+          frames_.as(value);
+        },
+      },
+      [label],
+    );
+  }
+  return View(
+    {
+      class: "reverse-frame-choice",
+      attributes: { n: name },
+    },
+    [option("3", "3 张"), option("all", "全部")],
+  );
+}
+
 export function DownloadV2ReverseDialog(props) {
   const vm$ = props.store;
   return Dialog(
@@ -1637,12 +1536,16 @@ export function DownloadV2ReverseDialog(props) {
             label: "看图写分镜",
             name: "download-reverse-vlm",
           }),
+          ReverseFrameChoice({
+            frames: vm$.state.reverse_vlm_frames,
+            name: "download-reverse-frames",
+          }),
           View(
             {
               class: "dl-dialog-field-hint",
               attributes: { n: "download-reverse-vlm-hint" },
             },
-            ["默认关闭。勾选后会看关键帧并写出每个镜头的提示词，不勾选则只拆镜头和声音。"],
+            ["默认关闭。勾选后默认看开头、中间、结尾 3 张；选全部会看每个镜头。不勾选则只拆镜头和声音。"],
           ),
           View(
             {
@@ -1921,6 +1824,55 @@ function DownloadV2RemakeAction(props) {
   );
 }
 
+function DownloadV2AnalyzeIcon() {
+  return SVG.SVG(
+    {
+      attributes: {
+        width: "18",
+        height: "18",
+        xmlns: "http://www.w3.org/2000/svg",
+        viewBox: "0 0 24 24",
+        fill: "none",
+        stroke: "currentColor",
+        "stroke-width": "2",
+        "stroke-linecap": "round",
+        "stroke-linejoin": "round",
+        "aria-hidden": "true",
+      },
+    },
+    [
+      SVG.Path({
+        attributes: {
+          d: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z",
+        },
+      }),
+      SVG.Path({ attributes: { d: "m15 5 4 4" } }),
+    ],
+  );
+}
+
+function DownloadV2AnalyzeAction(props) {
+  const { store: vm$, task: task$ } = props;
+  return View(
+    {
+      type: "button",
+      class: "dl-page-task-action",
+      attributes: {
+        type: "button",
+        title: "视频重绘",
+        "aria-label": "视频重绘",
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        vm$.methods.openAnalyze(task$);
+      },
+    },
+    [DownloadV2AnalyzeIcon()],
+  );
+}
+
 function RemakeChoice(props) {
   function choice_state(value) {
     const dynamic = typeof props.locked === "function";
@@ -2007,19 +1959,38 @@ function RemakeShotStrip(props) {
       View(
         {
           type: "button",
-          class: "white-model-detail-option",
+          class: combine(
+            {
+              busy: vm$.state.remake_shot_busy,
+              phase: vm$.state.remake_shot_phase,
+            },
+            (state) =>
+              state.busy && state.phase === "shots"
+                ? "white-model-detail-option is-busy"
+                : "white-model-detail-option",
+          ),
           attributes: {
             type: "button",
             n: "download-remake-shots",
-            disabled: computed(vm$.state.remake_shot_busy, (busy) =>
-              busy ? "disabled" : undefined,
+            disabled: combine(
+              {
+                shotBusy: vm$.state.remake_shot_busy,
+                cutBusy: vm$.state.remake_cut_busy,
+                busyMap: vm$.state.remake_story_busy_map,
+              },
+              (state) =>
+                state.shotBusy ||
+                state.cutBusy ||
+                Object.keys(state.busyMap || {}).length > 0
+                  ? "disabled"
+                  : undefined,
             ),
           },
           onClick() {
             vm$.methods.runRemakeShots();
           },
         },
-        [computed(vm$.state.remake_shot_busy, (busy) => (busy ? "正在拉片" : "开始拉片"))],
+        ["开始拉片"],
       ),
     ]),
     View({ class: "white-model-controls-hint" }, [vm$.state.remake_shot_message]),
@@ -2039,7 +2010,7 @@ function RemakeShotStrip(props) {
               }),
               attributes: { type: "button", title: shot.caption || "关键帧" },
               onClick() {
-                vm$.methods.pickRemakeShot(shot);
+                vm$.methods.openRemakeBoard(shot);
               },
             },
             [
@@ -2057,131 +2028,533 @@ function RemakeShotStrip(props) {
   ]);
 }
 
-function RemakeFileField(props) {
-  return View({ class: "remake-file" }, [
-    View({ class: "remake-file-label" }, [props.label]),
-    View({
-      class: "remake-file-slot",
-      onMounted(event) {
-        const root = event.target.get$elm();
-        const input = root.ownerDocument.createElement("input");
-        input.type = "file";
-        input.accept = props.accept;
-        input.setAttribute("aria-label", props.label);
-        input.addEventListener("change", () => {
-          const file = input.files && input.files[0];
-          props.onFile(file || null);
-        });
-        root.replaceChildren(input);
+function RemakeCutStrip(props) {
+  const vm$ = props.store;
+  return View({ class: "remake-cuts-block" }, [
+    View({ class: "remake-form-label" }, ["视频切割"]),
+    View({ class: "white-model-detail" }, [
+      View(
+        {
+          type: "button",
+          class: computed(vm$.state.remake_cut_step, (step) =>
+            Number(step) === 10
+              ? "white-model-detail-option"
+              : "white-model-detail-option is-active",
+          ),
+          attributes: {
+            type: "button",
+            disabled: computed(vm$.state.remake_cut_busy, (busy) =>
+              busy ? "disabled" : undefined,
+            ),
+          },
+          onClick() {
+            vm$.methods.pickRemakeCutStep(5);
+          },
+        },
+        ["5秒"],
+      ),
+      View(
+        {
+          type: "button",
+          class: computed(vm$.state.remake_cut_step, (step) =>
+            Number(step) === 10
+              ? "white-model-detail-option is-active"
+              : "white-model-detail-option",
+          ),
+          attributes: {
+            type: "button",
+            disabled: computed(vm$.state.remake_cut_busy, (busy) =>
+              busy ? "disabled" : undefined,
+            ),
+          },
+          onClick() {
+            vm$.methods.pickRemakeCutStep(10);
+          },
+        },
+        ["10秒"],
+      ),
+      View(
+        {
+          type: "button",
+          class: combine(
+            {
+              busy: vm$.state.remake_cut_busy,
+              phase: vm$.state.remake_shot_phase,
+            },
+            (state) =>
+              state.busy && state.phase === "cut"
+                ? "white-model-detail-option is-busy"
+                : "white-model-detail-option",
+          ),
+          attributes: {
+            type: "button",
+            n: "download-remake-cut",
+            disabled: combine(
+              {
+                shotBusy: vm$.state.remake_shot_busy,
+                cutBusy: vm$.state.remake_cut_busy,
+                busyMap: vm$.state.remake_story_busy_map,
+              },
+              (state) =>
+                state.shotBusy ||
+                state.cutBusy ||
+                Object.keys(state.busyMap || {}).length > 0
+                  ? "disabled"
+                  : undefined,
+            ),
+          },
+          onClick() {
+            vm$.methods.runRemakeCut();
+          },
+        },
+        ["视频切割"],
+      ),
+    ]),
+    View({ class: "white-model-controls-hint" }, [vm$.state.remake_cut_message]),
+    Show({
+      when: computed(vm$.state.remake_cuts, (clips) => Array.isArray(clips) && clips.length > 0),
+      ok() {
+        return View({ class: "remake-cut-list" }, [
+          View({ class: "remake-cut-list-titles" }, [
+            View({ class: "remake-cut-title remake-cut-title-clip" }, ["片段"]),
+            View({ class: "remake-cut-title remake-cut-title-white" }, ["白模"]),
+            View({ class: "remake-cut-title remake-cut-title-prompt" }, ["提示词"]),
+            View({ class: "remake-cut-title remake-cut-title-action" }, ["视频反推"]),
+            View({ class: "remake-cut-title remake-cut-title-action" }, ["提示词生成"]),
+            View({ class: "remake-cut-title remake-cut-title-action" }, ["复刻"]),
+            View({ class: "remake-cut-title remake-cut-title-status" }, ["状态"]),
+            View({ class: "remake-cut-title remake-cut-title-result" }, ["复刻视频"]),
+          ]),
+          For({
+            each: vm$.state.remake_cuts,
+            key: "rowKey",
+            render(clip) {
+              return View({ class: "remake-cut-row" }, [
+                View({ class: "remake-cut-clip" }, [
+                  Timeless.Video({
+                    class: "remake-cut-video",
+                    src: computed(vm$.state.remake_cuts, (clips) => {
+                      const current = Array.isArray(clips)
+                        ? clips.find((item) => item.id === clip.id)
+                        : null;
+                      return (current && current.url) || clip.url || "";
+                    }),
+                    controls: true,
+                    playsInline: true,
+                    preload: "metadata",
+                    attributes: { n: `download-remake-cut-${clip.id}` },
+                    onClick(event) {
+                      const el = event.currentTarget;
+                      if (!el || typeof el.play !== "function" || !el.paused) return;
+                      const rect = el.getBoundingClientRect();
+                      const y = event.clientY - rect.top;
+                      if (y > rect.height - 40) return;
+                      el.play();
+                    },
+                  }),
+                  View({ class: "remake-cut-caption" }, [clip.label || ""]),
+                ]),
+                View({ class: "remake-cut-white" }, [
+                  Show({
+                    when: computed(vm$.state.remake_cuts, (clips) => {
+                      const current = Array.isArray(clips)
+                        ? clips.find((item) => item.id === clip.id)
+                        : null;
+                      return Boolean(current && current.whiteUrl);
+                    }),
+                    ok() {
+                      return View({ class: "remake-cut-white-body" }, [
+                        Timeless.Video({
+                          class: "remake-cut-video",
+                          src: computed(vm$.state.remake_cuts, (clips) => {
+                            const current = Array.isArray(clips)
+                              ? clips.find((item) => item.id === clip.id)
+                              : null;
+                            return (current && current.whiteUrl) || "";
+                          }),
+                          controls: true,
+                          playsInline: true,
+                          preload: "metadata",
+                        }),
+                        View(
+                          {
+                            type: "button",
+                            class: computed(vm$.state.remake_cuts, (clips) => {
+                              const current = Array.isArray(clips)
+                                ? clips.find((item) => item.id === clip.id)
+                                : null;
+                              const on = Boolean(current && current.whiteSelected !== false);
+                              return on
+                                ? "white-model-detail-option is-active"
+                                : "white-model-detail-option";
+                            }),
+                            attributes: {
+                              type: "button",
+                              title: "点选是否把白模作为参考视频",
+                              n: `download-remake-cut-white-${clip.id}`,
+                            },
+                            onClick() {
+                              vm$.methods.toggleCutWhite(clip.id);
+                            },
+                          },
+                          [
+                            computed(vm$.state.remake_cuts, (clips) => {
+                              const current = Array.isArray(clips)
+                                ? clips.find((item) => item.id === clip.id)
+                                : null;
+                              return current && current.whiteSelected !== false
+                                ? "已选参考"
+                                : "未选参考";
+                            }),
+                          ],
+                        ),
+                      ]);
+                    },
+                  }),
+                ]),
+                View({
+                  class: "remake-cut-prompt-slot",
+                  onMounted(event) {
+                    const root = event.target.get$elm();
+                    const current = (vm$.state.remake_cuts.value || []).find(
+                      (item) => item.id === clip.id,
+                    );
+                    const area = root.ownerDocument.createElement("textarea");
+                    area.className = "remake-cut-prompt";
+                    area.rows = 4;
+                    area.value = String((current && current.prompt) || "");
+                    area.placeholder = "填写复刻提示词，或点「提示词生成」";
+                    area.setAttribute("aria-label", `${clip.label || "片段"} 复刻提示词`);
+                    area.setAttribute("data-cut-prompt", clip.id);
+                    area.addEventListener("input", () => {
+                      vm$.methods.updateCutPrompt(clip.id, area.value);
+                    });
+                    root.replaceChildren(area);
+                  },
+                }),
+                View({ class: "remake-cut-action" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: "white-model-detail-option",
+                      attributes: { type: "button" },
+                      onClick() {
+                        vm$.methods.openCutReverse(clip);
+                      },
+                    },
+                    ["视频反推"],
+                  ),
+                ]),
+                View({ class: "remake-cut-action" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: "white-model-detail-option",
+                      attributes: { type: "button", n: `download-remake-cut-prompt-${clip.id}` },
+                      onClick() {
+                        vm$.methods.previewCutPrompt(clip);
+                      },
+                    },
+                    ["提示词生成"],
+                  ),
+                ]),
+                View({ class: "remake-cut-action" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: "white-model-detail-option",
+                      attributes: { type: "button", n: `download-remake-cut-remake-${clip.id}` },
+                      onClick() {
+                        vm$.methods.runCutRemake(clip);
+                      },
+                    },
+                    ["复刻"],
+                  ),
+                ]),
+                View({ class: "remake-cut-status" }, [
+                  computed(vm$.state.remake_cuts, (clips) => {
+                    const current = Array.isArray(clips)
+                      ? clips.find((item) => item.id === clip.id)
+                      : null;
+                    return (current && current.status) || "";
+                  }),
+                ]),
+                View({ class: "remake-cut-result" }, [
+                  Show({
+                    when: computed(vm$.state.remake_cuts, (clips) => {
+                      const current = Array.isArray(clips)
+                        ? clips.find((item) => item.id === clip.id)
+                        : null;
+                      return Boolean(current && current.resultUrl);
+                    }),
+                    ok() {
+                      return View({ class: "remake-cut-result-body" }, [
+                        View(
+                          {
+                            type: "button",
+                            class: "remake-cut-result-open",
+                            attributes: {
+                              type: "button",
+                              title: "查看复刻历史",
+                              n: `download-remake-cut-result-${clip.id}`,
+                            },
+                            onClick() {
+                              vm$.methods.openCutResults(clip.id);
+                            },
+                          },
+                          [
+                            Timeless.Video({
+                              class: "remake-cut-result-video",
+                              src: computed(vm$.state.remake_cuts, (clips) => {
+                                const current = Array.isArray(clips)
+                                  ? clips.find((item) => item.id === clip.id)
+                                  : null;
+                                return (current && current.resultUrl) || "";
+                              }),
+                              muted: true,
+                              playsInline: true,
+                              preload: "metadata",
+                            }),
+                          ],
+                        ),
+                        View(
+                          {
+                            type: "button",
+                            class: "remake-cut-result-history",
+                            attributes: {
+                              type: "button",
+                              n: `download-remake-cut-history-${clip.id}`,
+                            },
+                            onClick() {
+                              vm$.methods.openCutResults(clip.id);
+                            },
+                          },
+                          [
+                            computed(vm$.state.remake_cuts, (clips) => {
+                              const current = Array.isArray(clips)
+                                ? clips.find((item) => item.id === clip.id)
+                                : null;
+                              const count =
+                                current && Array.isArray(current.resultItems)
+                                  ? current.resultItems.length
+                                  : current && current.resultUrl
+                                    ? 1
+                                    : 0;
+                              return count > 1 ? `历史(${count})` : "查看";
+                            }),
+                          ],
+                        ),
+                      ]);
+                    },
+                  }),
+                ]),
+              ]);
+            },
+          }),
+        ]);
       },
     }),
-    View({ class: "remake-file-name" }, [props.name]),
   ]);
 }
 
-export function DownloadV2RemakeDialog(props) {
+function RemakeVendorBar(props) {
   const vm$ = props.store;
-  return Dialog(
-    {
-      store: vm$.ui.remakeDialog$,
-      class: "dl-page-white-model-dialog",
-      attributes: { n: "download-remake-dialog" },
-    },
-    () => [
-      DownloadV2DialogHeading({
-        title: vm$.state.remake_title,
-        description: vm$.state.remake_message,
-      }),
-      DialogBody(
-        {
-          class: "dl-page-white-model-body",
-          attributes: { n: "download-remake-body" },
-        },
-        [
-          Show({
-            when: computed(vm$.state.remake_progress, (value) => Number(value) >= 0),
-            ok() {
-              return View(
-                { class: "dl-page-white-model-progress" },
-                [
-                  View({
-                    class: "dl-page-white-model-progress-bar",
-                    style: computed(vm$.state.remake_progress, (value) => ({
-                      width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`,
-                    })),
-                  }),
-                ],
-              );
-            },
-          }),
-          Show({
-            when: computed(vm$.state.remake_url, (url) => Boolean(url)),
-            ok() {
-              return Timeless.Video({
-                class: "dl-page-white-model-video",
-                src: vm$.state.remake_url,
-                controls: true,
-                playsInline: true,
-                preload: "metadata",
-                attributes: { n: "download-remake-video" },
-              });
-            },
-            else() {
-              return View(
-                { class: "dl-page-white-model-empty" },
-                ["5 秒预览会显示在这里。"],
-              );
-            },
-          }),
-          View({ class: "remake-form" }, [
-            View({ class: "remake-form-label" }, ["厂商"]),
-            View({ class: "remake-vendor" }, [
-              View({ class: "remake-vendor-name" }, ["不鸣"]),
-              View({ class: "white-model-detail" }, [
-                RemakeChoice({
-                  current: vm$.state.remake_reference,
-                  value: "mu-video",
-                  label: "MU Video",
-                  equals(value) {
-                    const model = value && value.model;
-                    return !model || (model !== "hailuo" && model !== "hailuo-2-3" && model !== "buming-h3");
-                  },
-                  onPick: vm$.methods.pickRemakeModel,
-                }),
-                RemakeChoice({
-                  current: vm$.state.remake_reference,
-                  value: "hailuo-2-3",
-                  label: "Hailuo 2.3",
-                  equals(value) {
-                    return Boolean(value && value.model === "hailuo-2-3");
-                  },
-                  onPick: vm$.methods.pickRemakeModel,
-                }),
-                RemakeChoice({
-                  current: vm$.state.remake_reference,
-                  value: "buming-h3",
-                  label: "Hailuo H3",
-                  equals(value) {
-                    return Boolean(value && value.model === "buming-h3");
-                  },
-                  onPick: vm$.methods.pickRemakeModel,
-                }),
-              ]),
+  return View({ class: "remake-story-vendor" }, [
+    View({ class: "remake-form-label" }, ["厂商 / 视频模型"]),
+    View({ class: "remake-vendor" }, [
+      View({ class: "remake-vendor-name" }, ["ming"]),
+            View({ class: "white-model-detail" }, [
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "mu-video",
+                label: "MU Video",
+                equals(value) {
+                  const model = value && value.model;
+            return (
+              !model ||
+              (model !== "hailuo" &&
+                model !== "hailuo-2-3" &&
+                model !== "buming-h3" &&
+                model !== "wan-3-0")
+            );
+                },
+                onPick: vm$.methods.pickRemakeModel,
+              }),
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "hailuo-2-3",
+                label: "Hailuo 2.3",
+                equals(value) {
+                  return Boolean(value && value.model === "hailuo-2-3");
+                },
+                onPick: vm$.methods.pickRemakeModel,
+              }),
+        RemakeChoice({
+          current: vm$.state.remake_reference,
+          value: "buming-h3",
+          label: "Hailuo H3",
+          equals(value) {
+            return Boolean(value && value.model === "buming-h3");
+          },
+          onPick: vm$.methods.pickRemakeModel,
+        }),
+        RemakeChoice({
+          current: vm$.state.remake_reference,
+          value: "wan-3-0",
+          label: "Wan 3.0",
+          equals(value) {
+            return Boolean(value && value.model === "wan-3-0");
+          },
+          onPick: vm$.methods.pickRemakeModel,
+        }),
+      ]),
+    ]),
+    View({ class: "remake-vendor" }, [
+      View({ class: "remake-vendor-name" }, ["RunningHub"]),
+      View({ class: "white-model-detail" }, [
+              RemakeChoice({
+                current: vm$.state.remake_reference,
+                value: "hailuo",
+                label: "Hailuo H3",
+                equals(value) {
+                  return Boolean(value && value.model === "hailuo");
+                },
+                onPick: vm$.methods.pickRemakeModel,
+              }),
+      ]),
             ]),
-            View({ class: "remake-vendor" }, [
-              View({ class: "remake-vendor-name" }, ["RunningHub"]),
-              View({ class: "white-model-detail" }, [
-                RemakeChoice({
-                  current: vm$.state.remake_reference,
-                  value: "hailuo",
-                  label: "Hailuo H3",
-                  equals(value) {
-                    return Boolean(value && value.model === "hailuo");
-                  },
-                  onPick: vm$.methods.pickRemakeModel,
-                }),
-              ]),
-            ]),
+    View({ class: "remake-story-model-rows" }, [
+      View({ class: "remake-story-model-row" }, [
+        View({ class: "remake-story-model-row-label" }, ["推理模型"]),
+        View({ class: "white-model-detail remake-prompt-llm-pick" }, [
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_prompt_llm, (model) =>
+                model === "nemotron"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: {
+                type: "button",
+                n: "download-remake-prompt-llm-nemotron",
+              },
+              onClick() {
+                vm$.methods.pickRemakePromptLlm("nemotron");
+              },
+            },
+            ["Nemotron"],
+          ),
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_prompt_llm, (model) =>
+                model === "deepseek"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: {
+                type: "button",
+                n: "download-remake-prompt-llm-deepseek",
+              },
+              onClick() {
+                vm$.methods.pickRemakePromptLlm("deepseek");
+              },
+            },
+            ["DeepSeek"],
+          ),
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_prompt_llm, (model) =>
+                model === "gt-5.5"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: {
+                type: "button",
+                n: "download-remake-prompt-llm-gt55",
+              },
+              onClick() {
+                vm$.methods.pickRemakePromptLlm("gt-5.5");
+              },
+            },
+            ["GT-5.5"],
+          ),
+        ]),
+      ]),
+      View({ class: "remake-story-model-row" }, [
+        View({ class: "remake-story-model-row-label" }, ["生图模型"]),
+        View({ class: "white-model-detail remake-story-model-pick" }, [
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_story_model, (model) =>
+                model === "mj-img"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: { type: "button", n: "download-remake-story-model-mj" },
+              onClick() {
+                vm$.methods.pickRemakeStoryModel("mj-img");
+              },
+            },
+            ["MJ"],
+          ),
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_story_model, (model) =>
+                model === "mu-image"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: { type: "button", n: "download-remake-story-model-mu" },
+              onClick() {
+                vm$.methods.pickRemakeStoryModel("mu-image");
+              },
+            },
+            ["MU 生图"],
+          ),
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_story_model, (model) =>
+                !model || model === "gt-image" || model === "gt-image-2"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: {
+                type: "button",
+                n: "download-remake-story-model-gt-image",
+              },
+              onClick() {
+                vm$.methods.pickRemakeStoryModel("gt-image");
+              },
+            },
+            ["GT Image 2"],
+          ),
+          View(
+            {
+              type: "button",
+              class: computed(vm$.state.remake_story_model, (model) =>
+                model === "seedream"
+                  ? "white-model-detail-option is-active"
+                  : "white-model-detail-option",
+              ),
+              attributes: {
+                type: "button",
+                n: "download-remake-story-model-seedream",
+              },
+              onClick() {
+                vm$.methods.pickRemakeStoryModel("seedream");
+              },
+            },
+            ["Seedream 5.0"],
+          ),
+        ]),
+      ]),
+    ]),
             View({ class: "remake-form-label" }, ["参考视频"]),
             View({ class: "white-model-detail" }, [
               RemakeChoice({
@@ -2206,92 +2579,1137 @@ export function DownloadV2RemakeDialog(props) {
                 onPick: vm$.methods.pickRemakeReference,
               }),
             ]),
-            RemakeShotStrip({ store: vm$ }),
-            RemakeFileField({
-              label: "参考图",
-              accept: "image/png,image/jpeg,image/webp",
-              name: vm$.state.remake_image_name,
-              onFile: vm$.methods.pickRemakeImage,
-            }),
-            View({ class: "remake-note" }, [
-              View({ class: "remake-form-label" }, ["你的提示词"]),
-              Textarea({
-                store: vm$.ui.input_remake_note$,
-                attributes: {
-                  n: "download-remake-note",
-                  rows: "4",
-                },
-              }),
-            ]),
             View({ class: "white-model-controls-hint" }, [
               computed(vm$.state.remake_reference, (value) => {
                 const selected = value && typeof value === "object" ? value : {};
-                if (selected.model === "buming-h3") {
-                  return "不鸣的 Hailuo H3。可以带参考视频和参考图，每段取前 5 秒。没有参考视频时，有参考图就作为首帧，否则按文字生成。";
-                }
+        if (selected.model === "wan-3-0") {
+          return "分镜视频可勾选结果图（最多 10 张）。Wan 3.0 约 5 秒、720p；一张图作首帧，多张图走参考生。整段复刻也可以带参考视频。";
+        }
+        if (selected.model === "buming-h3") {
+          return "分镜视频可勾选结果图与参考图（多张）。不鸣 Hailuo H3 约 5 秒，也可配合上方参考视频。";
+        }
                 if (selected.model === "hailuo-2-3") {
-                  return "不鸣的 Hailuo 2.3 不能上传参考视频。参考图从拉片里选，或自己上传。没选时按文字生成 6 秒，提示词不超过 2000 字。选了参考图就作为首帧，不再抽帧。";
+          return "分镜视频可勾选结果图与参考图；Hailuo 2.3 仅支持 1 张图，约 6 秒。";
                 }
                 if (selected.model !== "hailuo") {
-                  return "不鸣的 MU Video 不能上传参考视频。参考图从拉片里选，或自己上传。没选时按文字生成，提示词仍按原始视频抽帧来写。选了参考图就只用这张图，不再抽帧。";
-                }
-                const parts = ["RunningHub 的 Hailuo H3", "没有参考图时，提示词按原始视频抽帧来写", "添加了参考图就按参考图来写，不再抽帧"];
-                if (!selected.source) parts.push("不勾选时原片不会上传，仍可生成预览");
-                if (!selected.whiteReady) parts.push("白模生成后才能勾选");
-                else if (selected.white) parts.push("白模只额外对齐动作，不改这段解析");
-                return `${parts.join("，")}。每段取前 5 秒。`;
+          return "分镜视频可勾选结果图与参考图（多张）；MU Video 约 5 秒，参考模式最多 4 张。";
+        }
+        return "分镜视频可勾选结果图作首帧。RunningHub Hailuo H3 约 5 秒。";
+      }),
+    ]),
+  ]);
+}
+
+function RemakeRefsBlock(props) {
+  const vm$ = props.store;
+  return (
+    View({ class: "remake-story-refs-block" }, [
+      View({ class: "remake-story-refs-head" }, [
+        View({ class: "remake-form-label" }, ["替换图"]),
+        View({ class: "remake-story-refs-tools" }, [
+          View(
+            {
+              type: "button",
+              class: "white-model-detail-option remake-story-refs-upload",
+              attributes: {
+                type: "button",
+                n: "download-remake-story-refs-upload",
+                disabled: computed(vm$.state.remake_story_refs, (items) =>
+                  Array.isArray(items) && items.length >= 5 ? "disabled" : undefined,
+                ),
+              },
+              onClick() {
+                const input = document.createElement("input");
+                input.type = "file";
+                input.accept = "image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp";
+                input.multiple = true;
+                input.addEventListener("change", () => {
+                  vm$.methods.uploadRemakeStoryRefs(input.files);
+                });
+                input.click();
+              },
+            },
+            [
+              computed(vm$.state.remake_story_refs, (items) => {
+                const count = Array.isArray(items) ? items.length : 0;
+                return count >= 5 ? "已满 5 张" : `上传替换图（${count}/5）`;
               }),
+            ],
+          ),
+        ]),
+      ]),
+      View({ class: "white-model-controls-hint" }, [
+        "上传的替换图可点选绿框对勾。片段复刻使用勾选的替换图、切割片段和这一段的白模。生图仍用替换图加关键帧；生成视频只用本行勾选的结果图和替换图。",
             ]),
             Show({
-              when: computed(vm$.state.remake_prompt, (text) =>
-                Boolean(String(text || "").trim()),
+        when: computed(vm$.state.remake_story_refs, (items) =>
+          Array.isArray(items) && items.length > 0,
               ),
               ok() {
-                return View({ class: "remake-prompt" }, [
-                  View({ class: "remake-form-label" }, ["最终提示词"]),
-                  View({ class: "remake-prompt-text" }, [vm$.state.remake_prompt]),
+          return View({ class: "remake-story-refs" }, [
+            For({
+              each: vm$.state.remake_story_refs,
+              key: "rowKey",
+              render(item) {
+                return View({ class: "remake-story-ref-card" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: computed(vm$.state.remake_story_refs, (items) => {
+                        const current = Array.isArray(items)
+                          ? items.find((row) => row.id === item.id)
+                          : null;
+                        const on = current ? current.selected !== false : true;
+                        return on
+                          ? "remake-story-ref-frame is-selected"
+                          : "remake-story-ref-frame";
+                      }),
+                      attributes: {
+                        type: "button",
+                        title: "点选是否用作生图参考图",
+                        n: "download-remake-story-ref-toggle",
+                      },
+                      onClick() {
+                        vm$.methods.toggleRemakeStoryRef(item.id);
+                      },
+                    },
+                    [
+                      Img({
+                        class: "remake-story-ref-image",
+                        src: item.url,
+                        alt: "生图参考图",
+                      }),
+                      Show({
+                        when: computed(vm$.state.remake_story_refs, (items) => {
+                          const current = Array.isArray(items)
+                            ? items.find((row) => row.id === item.id)
+                            : null;
+                          return current ? current.selected !== false : true;
+                        }),
+                        ok() {
+                          return View(
+                            {
+                              class: "remake-story-ref-check",
+                              attributes: { "aria-hidden": "true" },
+                            },
+                      ["✓"],
+                        );
+                      },
+                    }),
+                  ],
+                ),
+                View({ class: "remake-story-ref-card-actions" }, [
+                  View({ class: "remake-story-ref-caption" }, [
+                    computed(vm$.state.remake_story_refs, (items) => {
+                      const list = Array.isArray(items) ? items : [];
+                      let order = 0;
+                      for (const row of list) {
+                        if (!row || row.selected === false) continue;
+                        order += 1;
+                        if (row.id === item.id) return `@参考${order}`;
+                      }
+                      return "未选用";
+                    }),
+                  ]),
+                  View(
+                    {
+                      type: "button",
+                      class: "remake-story-ref-caption",
+                      attributes: {
+                        type: "button",
+                        title: "放大查看",
+                        n: "download-remake-story-ref-preview",
+                      },
+                        onClick() {
+                          vm$.methods.openRemakeBoard({
+                            url: item.url,
+                            path: item.path,
+                            caption: "生图参考图",
+                          });
+                        },
+                      },
+                      ["放大"],
+                    ),
+                    View(
+                      {
+                        type: "button",
+                        class: "remake-story-ref-caption remake-story-ref-remove",
+                        attributes: {
+                          type: "button",
+                          title: "删除这张参考图",
+                          n: "download-remake-story-ref-remove",
+                        },
+                        onClick() {
+                          vm$.methods.removeRemakeStoryRef(item.id);
+                        },
+                      },
+                      ["删除"],
+                    ),
+                  ]),
                 ]);
               },
             }),
-          ]),
-          View({ class: "dl-page-transcript-actions" }, [
-            Button(
-              {
-                store: vm$.ui.btn_remake_download$,
-                attributes: { n: "download-remake-download" },
+                ]);
               },
-              ["下载预览"],
-            ),
-            Button(
+            }),
+          ])
+  );
+}
+
+function RemakeStoryboardList(props) {
+  const vm$ = props.store;
+  return View({ class: "remake-story-list-block" }, [
+    View({ class: "remake-story-list-head" }, [
+      View({ class: "remake-form-label" }, ["分镜图 / 分镜视频"]),
+      View({ class: "remake-story-list-tools" }, [
+        View(
+          {
+            type: "button",
+            class: combine(
               {
-                store: vm$.ui.btn_remake_prompt$,
-                attributes: { n: "download-remake-prompt" },
+                shotBusy: vm$.state.remake_shot_busy,
+                busyMap: vm$.state.remake_story_busy_map,
               },
-              ["提示词预览"],
+              (state) =>
+                !state.shotBusy &&
+                String((state.busyMap || {})[""] || "") === "story-prompt"
+                  ? "white-model-detail-option remake-story-write-all is-busy"
+                  : "white-model-detail-option remake-story-write-all",
             ),
-            Button(
+            attributes: {
+              type: "button",
+              n: "download-remake-story-write-all",
+              disabled: combine(
+                {
+                  shotBusy: vm$.state.remake_shot_busy,
+                  busyMap: vm$.state.remake_story_busy_map,
+                },
+                (state) =>
+                  state.shotBusy || String((state.busyMap || {})[""] || "")
+                    ? "disabled"
+                    : undefined,
+              ),
+            },
+            onClick() {
+              vm$.methods.runRemakeStoryPrompts("");
+            },
+          },
+          ["全部写提示词"],
+        ),
+        View(
+          {
+            type: "button",
+            class: combine(
               {
-                store: vm$.ui.btn_remake_run$,
-                attributes: { n: "download-remake-run" },
+                shotBusy: vm$.state.remake_shot_busy,
+                busyMap: vm$.state.remake_story_busy_map,
               },
-              [
-                computed(
-                  combine(
-                    { url: vm$.state.remake_url, reference: vm$.state.remake_reference },
-                    (state) => {
-                      const model = state.reference && state.reference.model;
-                      const seconds = model === "hailuo-2-3" ? "6" : "5";
-                      return state.url ? "重新预览" : `生成 ${seconds} 秒预览`;
-                    },
-                  ),
-                  (label) => label,
-                ),
-              ],
+              (state) =>
+                !state.shotBusy &&
+                String((state.busyMap || {})[""] || "") === "story-script"
+                  ? "white-model-detail-option remake-story-script-run is-busy"
+                  : "white-model-detail-option remake-story-script-run",
             ),
-          ]),
-        ],
+            attributes: {
+              type: "button",
+              n: "download-remake-story-script",
+              disabled: combine(
+                {
+                  shotBusy: vm$.state.remake_shot_busy,
+                  busyMap: vm$.state.remake_story_busy_map,
+                },
+                (state) =>
+                  state.shotBusy || String((state.busyMap || {})[""] || "")
+                    ? "disabled"
+                    : undefined,
+              ),
+            },
+            onClick() {
+              vm$.methods.runRemakeStoryScript("");
+            },
+          },
+          ["批量生成脚本"],
+        ),
+      ]),
+    ]),
+    View({ class: "white-model-controls-hint" }, [
+      "可先视频反推；分镜列表请自行拉片或按镜操作。生图/视频参考可上传、点选关键帧或结果图（绿勾）。",
+    ]),
+    Show({
+      when: computed(vm$.state.remake_story_rows, (rows) =>
+        Array.isArray(rows) && rows.length > 0,
       ),
+      ok() {
+        return View({ class: "remake-story-list" }, [
+          View({ class: "remake-story-list-titles" }, [
+            View({ class: "remake-story-title remake-story-title-ref" }, ["关键帧/参考"]),
+            View({ class: "remake-story-title remake-story-title-prompt" }, ["生图提示词"]),
+            View({ class: "remake-story-title remake-story-title-result" }, ["结果图/参考"]),
+            View({ class: "remake-story-title remake-story-title-actions" }, ["生图"]),
+            View({ class: "remake-story-title remake-story-title-script" }, ["分镜脚本"]),
+            View({ class: "remake-story-title remake-story-title-video-actions" }, [
+              "生成视频",
+            ]),
+            View({ class: "remake-story-title remake-story-title-status" }, ["状态"]),
+            View({ class: "remake-story-title remake-story-title-video" }, ["视频"]),
+          ]),
+          For({
+            each: vm$.state.remake_story_rows,
+            key: "rowKey",
+            render(row) {
+              return View({ class: "remake-story-row" }, [
+                View({ class: "remake-story-ref remake-story-shot-frame" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: computed(vm$.state.remake_story_rows, (rows) => {
+                        const current = Array.isArray(rows)
+                          ? rows.find((item) => item.id === row.id)
+                          : null;
+                        const on = Boolean(current && current.refSelected);
+                        return on
+                          ? "remake-story-ref-frame is-selected"
+                          : "remake-story-ref-frame";
+                      }),
+                      attributes: {
+                        type: "button",
+                        title: "点选是否用作生图参考图",
+                        n: "download-remake-story-frame-ref-toggle",
+                      },
+                      onClick() {
+                        vm$.methods.toggleRemakeStoryFrameRef(row.id);
+                      },
+                    },
+                    [
+                      Img({
+                        class: "remake-story-ref-image",
+                        src: row.url,
+                        alt: row.caption || "关键帧",
+                      }),
+                      Show({
+                        when: computed(vm$.state.remake_story_rows, (rows) => {
+                          const current = Array.isArray(rows)
+                            ? rows.find((item) => item.id === row.id)
+                            : null;
+                          return Boolean(current && current.refSelected);
+                        }),
+                        ok() {
+                          return View(
+                            {
+                              class: "remake-story-ref-check",
+                              attributes: { "aria-hidden": "true" },
+                            },
+                            ["✓"],
+                          );
+                        },
+                      }),
+                    ],
+                  ),
+                  View({ class: "remake-story-ref-card-actions" }, [
+                    View(
+                      {
+                        type: "button",
+                        class: "remake-story-ref-caption",
+                        attributes: {
+                          type: "button",
+                          title: "放大查看关键帧",
+                          n: "download-remake-story-frame-preview",
+                        },
+                        onClick() {
+                          vm$.methods.openRemakeBoard({
+                            url: row.url,
+                            path: row.path,
+                            caption: row.caption || "关键帧",
+                          });
+                        },
+                      },
+                      [
+                        `第 ${row.id} 镜`,
+                        row.caption ? ` · ${row.caption}` : "",
+                        " · 放大",
+                      ],
+                    ),
+                  ]),
+                ]),
+                View({
+                  class: "remake-story-prompt-slot",
+                  onMounted(event) {
+                    const root = event.target.get$elm();
+                    const area = root.ownerDocument.createElement("textarea");
+                    area.className = "remake-story-prompt";
+                    area.rows = 4;
+                    area.value = String(row.prompt || "");
+                    area.placeholder =
+                      "点「写提示词」全方位分析画面，生成 Midjourney 8.2 提示词";
+                    area.setAttribute("aria-label", `分镜 ${row.id} 生图提示词`);
+                    area.addEventListener("input", () => {
+                      vm$.methods.updateRemakeStoryPrompt(row.id, area.value);
+                    });
+                    root.replaceChildren(area);
+                  },
+                }),
+                Show({
+                  when: computed(vm$.state.remake_story_rows, (rows) => {
+                    const current = Array.isArray(rows)
+                      ? rows.find((item) => item.id === row.id)
+                      : null;
+                    return Boolean(current && current.generatedUrl);
+                  }),
+                  ok() {
+                    return View({ class: "remake-story-result-wrap" }, [
+                      View(
+                        {
+                          type: "button",
+                          class: computed(vm$.state.remake_story_rows, (rows) => {
+                            const current = Array.isArray(rows)
+                              ? rows.find((item) => item.id === row.id)
+                              : null;
+                            const on = Boolean(
+                              current && current.resultRefSelected,
+                            );
+                            return on
+                              ? "remake-story-ref-frame remake-story-result is-selected"
+                              : "remake-story-ref-frame remake-story-result";
+                          }),
+                          attributes: {
+                            type: "button",
+                            title: "点选是否用作生成视频参考图",
+                            n: "download-remake-story-result-ref-toggle",
+                          },
+                          onClick() {
+                            vm$.methods.toggleRemakeStoryResultRef(row.id);
+                          },
+                        },
+                        [
+                          Img({
+                            class: "remake-story-result-image",
+                            src: computed(vm$.state.remake_story_rows, (rows) => {
+                              const current = Array.isArray(rows)
+                                ? rows.find((item) => item.id === row.id)
+                                : null;
+                              return current && current.generatedUrl
+                                ? current.generatedUrl
+                                : "";
+                            }),
+                            alt: "分镜结果",
+                          }),
+                          Show({
+                            when: computed(vm$.state.remake_story_rows, (rows) => {
+                              const current = Array.isArray(rows)
+                                ? rows.find((item) => item.id === row.id)
+                                : null;
+                              return Boolean(
+                                current && current.resultRefSelected,
+                              );
+                            }),
+                            ok() {
+                              return View(
+                                {
+                                  class: "remake-story-ref-check",
+                                  attributes: { "aria-hidden": "true" },
+                                },
+                                ["✓"],
+                              );
+                            },
+                          }),
+                        ],
+                      ),
+                      View({ class: "remake-story-ref-card-actions" }, [
+                        View(
+                          {
+                            type: "button",
+                            class: "remake-story-result-action",
+                            attributes: {
+                              type: "button",
+                              title: "查看并选择历史结果图",
+                              n: "download-remake-story-result-pick",
+                            },
+                            onClick() {
+                              vm$.methods.openRemakeStoryResultPicker(row.id);
+                            },
+                          },
+                          [
+                            computed(vm$.state.remake_story_rows, (rows) => {
+                              const current = Array.isArray(rows)
+                                ? rows.find((item) => item.id === row.id)
+                                : null;
+                              const count =
+                                current && Array.isArray(current.generatedItems)
+                                  ? current.generatedItems.length
+                                  : current && current.generatedUrl
+                                    ? 1
+                                    : 0;
+                              return count > 1
+                                ? `换结果图(${count})`
+                                : "换结果图";
+                            }),
+                          ],
+                        ),
+                      ]),
+                    ]);
+                  },
+                }),
+                View({ class: "remake-story-actions" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: combine(
+                        {
+                          shotBusy: vm$.state.remake_shot_busy,
+                          busyMap: vm$.state.remake_story_busy_map,
+                        },
+                    (state) => {
+                          const map = state.busyMap || {};
+                          const phase =
+                            String(map[row.id] || "") || String(map[""] || "");
+                          return !state.shotBusy && phase === "story-prompt"
+                            ? "white-model-detail-option remake-story-write is-busy"
+                            : "white-model-detail-option remake-story-write";
+                        },
+                      ),
+                      attributes: {
+                        type: "button",
+                        n: "download-remake-story-write",
+                        disabled: combine(
+                          {
+                            shotBusy: vm$.state.remake_shot_busy,
+                            busyMap: vm$.state.remake_story_busy_map,
+                          },
+                          (state) => {
+                            const map = state.busyMap || {};
+                            return state.shotBusy ||
+                              map[row.id] ||
+                              map[""]
+                              ? "disabled"
+                              : undefined;
+                          },
+                        ),
+                      },
+                      onClick() {
+                        vm$.methods.runRemakeStoryPrompts(row.id);
+                      },
+                    },
+                    ["写提示词"],
+                  ),
+                  View(
+                    {
+                      type: "button",
+                      class: combine(
+                        {
+                          shotBusy: vm$.state.remake_shot_busy,
+                          busyMap: vm$.state.remake_story_busy_map,
+                        },
+                        (state) => {
+                          const map = state.busyMap || {};
+                          return !state.shotBusy &&
+                            String(map[row.id] || "") === "story"
+                            ? "white-model-detail-option remake-story-run is-busy"
+                            : "white-model-detail-option remake-story-run";
+                        },
+                      ),
+                      attributes: {
+                        type: "button",
+                        n: "download-remake-story-run",
+                        disabled: combine(
+                          {
+                            shotBusy: vm$.state.remake_shot_busy,
+                            busyMap: vm$.state.remake_story_busy_map,
+                          },
+                          (state) => {
+                            const map = state.busyMap || {};
+                            return state.shotBusy || map[row.id]
+                              ? "disabled"
+                              : undefined;
+                          },
+                        ),
+                      },
+                      onClick() {
+                        vm$.methods.runRemakeStoryboard(row.id);
+                      },
+                    },
+                    ["生成图片"],
+                  ),
+                  View(
+                    {
+                      type: "button",
+                      class: combine(
+                        {
+                          shotBusy: vm$.state.remake_shot_busy,
+                          busyMap: vm$.state.remake_story_busy_map,
+                        },
+                        (state) => {
+                          const map = state.busyMap || {};
+                          const phase =
+                            String(map[row.id] || "") || String(map[""] || "");
+                          return !state.shotBusy && phase === "story-script"
+                            ? "white-model-detail-option remake-story-script is-busy"
+                            : "white-model-detail-option remake-story-script";
+                        },
+                      ),
+                      attributes: {
+                        type: "button",
+                        n: "download-remake-story-script-row",
+                        disabled: combine(
+                          {
+                            shotBusy: vm$.state.remake_shot_busy,
+                            busyMap: vm$.state.remake_story_busy_map,
+                          },
+                          (state) => {
+                            const map = state.busyMap || {};
+                            return state.shotBusy ||
+                              map[row.id] ||
+                              map[""]
+                              ? "disabled"
+                              : undefined;
+                          },
+                        ),
+                      },
+                      onClick() {
+                        vm$.methods.runRemakeStoryScript(row.id);
+                      },
+                    },
+                    ["生成脚本"],
+                  ),
+                ]),
+                View({
+                  class: "remake-story-script-slot",
+                  onMounted(event) {
+                    const root = event.target.get$elm();
+                    const area = root.ownerDocument.createElement("textarea");
+                    area.className = "remake-story-prompt remake-story-script-area";
+                    area.rows = 4;
+                    area.value = String(row.script || "");
+                    area.placeholder =
+                      "点「生成脚本」根据本镜画面和视频情节生成；可手改";
+                    area.setAttribute("aria-label", `分镜 ${row.id} 分镜脚本`);
+                    area.addEventListener("input", () => {
+                      vm$.methods.updateRemakeStoryScript(row.id, area.value);
+                    });
+                    root.replaceChildren(area);
+                  },
+                }),
+                View({ class: "remake-story-video-actions" }, [
+                  View(
+                    {
+                      type: "button",
+                      class: combine(
+                        {
+                          shotBusy: vm$.state.remake_shot_busy,
+                          busyMap: vm$.state.remake_story_busy_map,
+                        },
+                        (state) => {
+                          const map = state.busyMap || {};
+                          return !state.shotBusy &&
+                            String(map[row.id] || "") === "story-video"
+                            ? "white-model-detail-option remake-story-video-run is-busy"
+                            : "white-model-detail-option remake-story-video-run";
+                        },
+                      ),
+                      attributes: {
+                        type: "button",
+                        n: "download-remake-story-video-run",
+                        disabled: combine(
+                          {
+                            shotBusy: vm$.state.remake_shot_busy,
+                            busyMap: vm$.state.remake_story_busy_map,
+                          },
+                          (state) => {
+                            const map = state.busyMap || {};
+                            return state.shotBusy || map[row.id]
+                              ? "disabled"
+                              : undefined;
+                          },
+                        ),
+                      },
+                      onClick() {
+                        vm$.methods.runRemakeStoryVideo(row.id);
+                      },
+                    },
+                    ["生成视频"],
+                  ),
+                ]),
+                View({ class: "remake-story-status" }, [
+                  computed(vm$.state.remake_story_rows, (rows) => {
+                    const current = Array.isArray(rows)
+                      ? rows.find((item) => item.id === row.id)
+                      : null;
+                    return (current && current.status) || "—";
+                  }),
+                ]),
+                Show({
+                  when: computed(vm$.state.remake_story_rows, (rows) => {
+                    const current = Array.isArray(rows)
+                      ? rows.find((item) => item.id === row.id)
+                      : null;
+                    return Boolean(current && current.videoUrl);
+                  }),
+                  ok() {
+                    return View(
+                      {
+                        type: "button",
+                        class: "remake-story-video",
+                        attributes: {
+                          type: "button",
+                          title: "分镜视频",
+                          n: "download-remake-story-video",
+                        },
+                        onClick() {
+                          const current = (
+                            vm$.state.remake_story_rows.value || []
+                          ).find((item) => item.id === row.id);
+                          if (!current || !current.videoUrl) return;
+                          vm$.methods.openRemakeBoard({
+                            url: current.videoUrl,
+                            path: current.video,
+                            caption: current.caption || "分镜视频",
+                            kind: "video",
+                          });
+                        },
+                      },
+                      [
+                        Timeless.Video({
+                          class: "remake-story-video-player",
+                          src: computed(vm$.state.remake_story_rows, (rows) => {
+                            const current = Array.isArray(rows)
+                              ? rows.find((item) => item.id === row.id)
+                              : null;
+                            return current && current.videoUrl
+                              ? current.videoUrl
+                              : "";
+                          }),
+                          muted: true,
+                          playsInline: true,
+                          preload: "metadata",
+                          attributes: { n: "download-remake-story-video-el" },
+                        }),
+                      ],
+                    );
+                  },
+                }),
+              ]);
+            },
+          }),
+        ]);
+      },
+      else() {
+        return View({ class: "white-model-controls-hint" }, [
+          "先拉片或自行拆镜后，这里会列出每镜的生图与视频。",
+        ]);
+      },
+    }),
+  ]);
+}
+
+function RemakeBoardLightbox(props) {
+  const vm$ = props.store;
+  return Show({
+    when: computed(vm$.state.remake_board_preview, (value) =>
+      Boolean(value && value.url),
+    ),
+    ok() {
+      return View(
+        {
+          class: "remake-board-lightbox",
+          attributes: { n: "download-remake-board-lightbox" },
+          onClick() {
+            vm$.methods.closeRemakeBoard();
+          },
+        },
+        [
+          View(
+            {
+              class: "remake-board-lightbox-card",
+              onClick(event) {
+                if (event && typeof event.stopPropagation === "function") {
+                  event.stopPropagation();
+                }
+              },
+            },
+            [
+              Show({
+                when: computed(vm$.state.remake_board_preview, (value) =>
+                  Boolean(value && value.kind === "video"),
+                ),
+                ok() {
+                  return For({
+                    each: computed(vm$.state.remake_board_preview, (value) => {
+                      const url = value && value.url ? value.url : "";
+                      return url ? [{ url, videoKey: url }] : [];
+                    }),
+                    key: "videoKey",
+                    render(item) {
+                      return Timeless.Video({
+                        class: "remake-board-lightbox-video",
+                        src: item.url,
+                        controls: true,
+                        playsInline: true,
+                        autoplay: true,
+                        preload: "metadata",
+                      });
+                    },
+                  });
+                },
+                else() {
+                  return Img({
+                    class: "remake-board-lightbox-image",
+                    src: computed(vm$.state.remake_board_preview, (value) =>
+                      value && value.url ? value.url : "",
+                    ),
+                    alt: computed(vm$.state.remake_board_preview, (value) =>
+                      value && value.caption ? value.caption : "分镜图",
+                    ),
+                  });
+                },
+              }),
+              Show({
+                when: computed(vm$.state.remake_board_preview, (value) =>
+                  Boolean(
+                    value && Array.isArray(value.items) && value.items.length > 1,
+                  ),
+                ),
+                ok() {
+                  return View({ class: "remake-board-lightbox-thumbs" }, [
+                    For({
+                      each: computed(vm$.state.remake_board_preview, (value) => {
+                        const items =
+                          value && Array.isArray(value.items) ? value.items : [];
+                        const selected = String(
+                          (value && value.selectedPath) || "",
+                        ).trim();
+                        const kind = value && value.kind === "video" ? "video" : "image";
+                        return items.map((item, index) => ({
+                          path: item.path,
+                          url: item.url,
+                          caption: item.caption,
+                          kind,
+                          thumbKey: `${item.path || item.url || index}`,
+                          thumbIndex: index,
+                          isSelected: Boolean(
+                            selected && item.path && item.path === selected,
+                          ),
+                        }));
+                      }),
+                      key: "thumbKey",
+                      render(item) {
+                        return View(
+                          {
+                            type: "button",
+                            class: combine(
+                              {
+                                preview: vm$.state.remake_board_preview,
+                              },
+                              (state) => {
+                                const active =
+                                  Number(
+                                    state.preview && state.preview.index,
+                                  ) || 0;
+                                const selected = Boolean(item.isSelected);
+                                return [
+                                  "remake-board-lightbox-thumb",
+                                  active === item.thumbIndex
+                                    ? "is-active"
+                                    : "",
+                                  selected ? "is-selected" : "",
+                                ]
+                                  .filter(Boolean)
+                                  .join(" ");
+                              },
+                            ),
+                            attributes: {
+                              type: "button",
+                              title: item.isSelected
+                                ? "当前选用"
+                                : item.caption || `图 ${item.thumbIndex + 1}`,
+                              n: "download-remake-board-thumb",
+                            },
+                            onClick(event) {
+                              if (
+                                event &&
+                                typeof event.stopPropagation === "function"
+                              ) {
+                                event.stopPropagation();
+                              }
+                              vm$.methods.focusRemakeBoard(item.thumbIndex);
+                            },
+                          },
+                          [
+                            item.kind === "video"
+                              ? Timeless.Video({
+                                  class: "remake-board-lightbox-thumb-image",
+                                  src: item.url,
+                                  muted: true,
+                                  playsInline: true,
+                                  preload: "metadata",
+                                })
+                              : Img({
+                                  class: "remake-board-lightbox-thumb-image",
+                                  src: item.url,
+                                  alt: item.caption || `图 ${item.thumbIndex + 1}`,
+                                }),
+                            item.isSelected
+                              ? View(
+                                  {
+                                    class: "remake-board-lightbox-thumb-badge",
+                                  },
+                                  ["当前"],
+                                )
+                              : null,
+                          ],
+                        );
+                      },
+                    }),
+                  ]);
+                },
+              }),
+              View({ class: "remake-board-lightbox-footer" }, [
+                View({ class: "remake-board-lightbox-caption" }, [
+                  computed(vm$.state.remake_board_preview, (value) => {
+                    if (!value) return "";
+                    const total =
+                      Array.isArray(value.items) && value.items.length
+                        ? value.items.length
+                        : 1;
+                    const index = (Number(value.index) || 0) + 1;
+                    const caption = value.caption || "";
+                    return total > 1 ? `${caption} · ${index}/${total}` : caption;
+                  }),
+                ]),
+                Show({
+                  when: computed(vm$.state.remake_board_preview, (value) =>
+                    Boolean(
+                      value && Array.isArray(value.items) && value.items.length > 1,
+                    ),
+                  ),
+                  ok() {
+                    return View({ class: "remake-board-lightbox-nav" }, [
+                      View(
+                        {
+                          type: "button",
+                          class: "remake-board-lightbox-save",
+                          attributes: {
+                            type: "button",
+                            n: "download-remake-board-prev",
+                          },
+                          onClick() {
+                            vm$.methods.stepRemakeBoard(-1);
+                          },
+                        },
+                        [
+                          computed(vm$.state.remake_board_preview, (value) =>
+                            value && value.kind === "video" ? "上一条" : "上一张",
+                          ),
+                        ],
+                      ),
+                      View(
+                        {
+                          type: "button",
+                          class: "remake-board-lightbox-save",
+                          attributes: {
+                            type: "button",
+                            n: "download-remake-board-next",
+                          },
+                          onClick() {
+                            vm$.methods.stepRemakeBoard(1);
+                          },
+                        },
+                        [
+                          computed(vm$.state.remake_board_preview, (value) =>
+                            value && value.kind === "video" ? "下一条" : "下一张",
+                          ),
+                        ],
+                      ),
+                    ]);
+                  },
+                }),
+                Show({
+                  when: computed(vm$.state.remake_board_preview, (value) =>
+                    Boolean(
+                      value &&
+                        value.kind !== "video" &&
+                        value.shotId &&
+                        value.path,
+                    ),
+                  ),
+                  ok() {
+                    return View(
+                      {
+                        type: "button",
+                        class: "remake-board-lightbox-save",
+                        attributes: {
+                          type: "button",
+                          n: "download-remake-board-pick",
+                        },
+                        onClick() {
+                          vm$.methods.pickRemakeBoardGenerated();
+                        },
+                      },
+                        [
+                          computed(vm$.state.remake_board_preview, (value) =>
+                            value && value.picker ? "确认选用" : "选用此图",
+                          ),
+                        ],
+                      );
+                    },
+                  }),
+                  Show({
+                    when: computed(vm$.state.remake_board_preview, (value) =>
+                      Boolean(value && (value.path || value.url)),
+                    ),
+                    ok() {
+                      return View(
+                        {
+                          type: "button",
+                          class: "remake-board-lightbox-save",
+                          attributes: {
+                            type: "button",
+                            n: "download-remake-board-save",
+                          },
+                          onClick() {
+                            vm$.methods.saveRemakeBoard();
+                          },
+                        },
+                        [
+                          computed(vm$.state.remake_board_preview, (value) =>
+                            value && (value.picker || value.kind === "video")
+                              ? "下载"
+                              : "保存",
+                          ),
+                        ],
+                      );
+                    },
+                  }),
+                ]),
+            ],
+          ),
+        ],
+      );
+    },
+  });
+}
+
+export function DownloadV2RemakePanel(props) {
+  const vm$ = props.store;
+  const show_cuts = props.showCuts !== false;
+  const show_reverse = props.showReverse !== false;
+  const show_storyboard = props.showStoryboard !== false;
+  const form_children = [];
+  if (show_storyboard) form_children.push(RemakeShotStrip({ store: vm$ }));
+  form_children.push(RemakeVendorBar({ store: vm$ }));
+  form_children.push(RemakeRefsBlock({ store: vm$ }));
+  if (show_cuts) form_children.push(RemakeCutStrip({ store: vm$ }));
+  if (show_reverse) {
+    form_children.push(
+      View({ class: "remake-prompt" }, [
+        View({ class: "remake-form-label" }, ["视频反推"]),
+        View({ class: "remake-prompt-text" }, [
+          computed(vm$.state.remake_prompt, (text) =>
+            String(text || "").trim() ? text : "反推预览会显示在这里。",
+          ),
+        ]),
+      ]),
+    );
+  }
+  const body_children = [
+    Show({
+      when: computed(vm$.state.remake_progress, (value) => Number(value) >= 0),
+      ok() {
+        return View({ class: "dl-page-white-model-progress" }, [
+          View({
+            class: "dl-page-white-model-progress-bar",
+            style: computed(vm$.state.remake_progress, (value) => ({
+              width: `${Math.max(0, Math.min(100, Number(value) || 0))}%`,
+            })),
+          }),
+        ]);
+      },
+    }),
+    View({ class: "remake-form" }, form_children),
+  ];
+  if (show_reverse) {
+    body_children.push(
+      View({ class: "dl-page-transcript-actions" }, [
+        Button(
+          {
+            store: vm$.ui.btn_remake_prompt$,
+            attributes: { n: "download-remake-prompt" },
+          },
+          [
+            computed(vm$.state.remake_reverse_label, (label) =>
+              label || "视频反推",
+            ),
+          ],
+        ),
+        Button(
+          {
+            store: vm$.ui.btn_remake_reverse_report$,
+            attributes: { n: "download-remake-reverse-report" },
+          },
+          ["反推结果"],
+        ),
+      ]),
+    );
+  }
+  if (show_storyboard) {
+    body_children.push(RemakeStoryboardList({ store: vm$ }));
+  }
+  return View(
+    {
+      class: ["dl-page-remake-panel", props.class].filter(Boolean).join(" "),
+      attributes: { n: props.name || "download-remake-panel" },
+    },
+    [
+      View({ class: "dl-page-remake-heading" }, [
+        View(
+          { as: "h1", class: "dl-page-remake-title dm-font-display" },
+          [
+            computed(vm$.state.remake_page_label, (label) =>
+              String(props.pageLabel || label || "视频复刻").trim() || "视频复刻",
+            ),
+          ],
+        ),
+        Show({
+          when: combine(
+            {
+              page: vm$.state.remake_page_label,
+              title: vm$.state.remake_title,
+            },
+            (state) => {
+              const page =
+                String(props.pageLabel || state.page || "视频复刻").trim() ||
+                "视频复刻";
+              const title = String(state.title || "").trim();
+              return Boolean(title) && title !== page;
+            },
+          ),
+          ok() {
+            return View({ class: "dl-page-remake-subtitle" }, [
+              vm$.state.remake_title,
+            ]);
+          },
+        }),
+        View({ class: "dl-page-remake-description" }, [vm$.state.remake_message]),
+      ]),
+      View(
+        {
+          class: "dl-page-white-model-body dl-page-remake-body",
+          attributes: { n: "download-remake-body" },
+        },
+        body_children,
+      ),
+      RemakeBoardLightbox({ store: vm$ }),
     ],
+  );
+}
+
+export function DownloadV2RemakeDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.remakeDialog$,
+      class: "dl-page-white-model-dialog dl-page-remake-dialog",
+      attributes: { n: "download-remake-dialog" },
+    },
+    () => [DownloadV2RemakePanel({ store: vm$ })],
   );
 }
 

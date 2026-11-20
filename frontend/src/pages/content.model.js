@@ -411,6 +411,7 @@ function ContentViewModel(props) {
   const reverse_message_ = ref("");
   const reverse_path_ = ref("");
   const reverse_vlm_ = ref(false);
+  const reverse_vlm_frames_ = ref("3");
   const reverse_content_id_ = ref("");
   let reverse_sequence = 0;
   let reverse_timer = null;
@@ -440,20 +441,33 @@ function ContentViewModel(props) {
   const remake_reference_ = ref({ source: true, white: false, whiteReady: false, model: "mu-video" });
   const remake_image_name_ = ref("可以不选参考图");
   const remake_shots_ = ref([]);
+  const remake_story_rows_ = ref([]);
+  const remake_story_busy_id_ = ref("");
+  const remake_board_preview_ = ref(null);
   const remake_shot_mode_ = ref("scene");
-  const remake_shot_message_ = ref("拉片后关键帧会留在这里，点一张就能当作参考图。");
+  const remake_story_model_ = ref("gt-image");
+  const remake_story_use_refs = Object.create(null);
+  const remake_story_refs_ = ref([]);
+  const remake_shot_message_ = ref("拉片后关键帧会留在这里，点一张可放大查看；生图参考用分镜表中的参考图。");
   const remake_shot_busy_ = ref(false);
+  const remake_shot_phase_ = ref("");
   const remake_shot_id_ = ref("");
   let remake_shot_frames = [];
+  const remake_story_prompts = Object.create(null);
+  const remake_story_video_prompts = Object.create(null);
+  const remake_story_scripts = Object.create(null);
+  const remake_story_script_ = ref("");
   const remake_prompt_ = ref("");
   const remake_note_ = ref("");
   const remake_content_id_ = ref("");
   let remake_image_file = null;
   let remake_sequence = 0;
   let remake_timer = null;
+  let remake_fill_from_reverse = false;
+  const remake_reverse_label_ = ref("视频反推");
   const delete_task_ids_ = refarr([]);
   const delete_task_title_ = ref("");
-  const delete_files_ = ref(false);
+  const delete_files_ = ref(true);
   const deleting_ = ref(false);
   let request_sequence = 0;
   let transcript_sequence = 0;
@@ -633,7 +647,14 @@ function ContentViewModel(props) {
       variant: "outline",
       disabled: true,
       onClick() {
-        return methods.previewRemakePrompt();
+        return methods.runRemakeReverse();
+      },
+    }),
+    btn_remake_reverse_report$: new Timeless.vm.ButtonCore({
+      variant: "outline",
+      disabled: true,
+      onClick() {
+        return methods.openRemakeReverseReport();
       },
     }),
     btn_remake_run$: new Timeless.vm.ButtonCore({
@@ -977,7 +998,13 @@ function ContentViewModel(props) {
       return open_remake(content);
     },
     previewRemakePrompt() {
-      return preview_remake_prompt();
+      return run_remake_reverse();
+    },
+    runRemakeReverse() {
+      return run_remake_reverse();
+    },
+    openRemakeReverseReport() {
+      return open_remake_reverse_report();
     },
     runRemake() {
       return run_remake();
@@ -990,12 +1017,18 @@ function ContentViewModel(props) {
     },
     pickRemakeModel(value) {
       const current = normalize_remake_reference();
-      current.model = ["hailuo", "hailuo-2-3", "buming-h3"].includes(value) ? value : "mu-video";
+      current.model = ["hailuo", "hailuo-2-3", "buming-h3", "wan-3-0"].includes(value)
+        ? value
+        : "mu-video";
       remake_reference_.as(current);
     },
     pickRemakeReference(value) {
       const current = normalize_remake_reference();
-      if (current.model !== "hailuo" && current.model !== "buming-h3") return;
+      if (
+        current.model !== "hailuo" &&
+        current.model !== "buming-h3" &&
+        current.model !== "wan-3-0"
+      ) return;
       if (value === "source") current.source = !current.source;
       if (value === "white" && current.whiteReady) current.white = !current.white;
       remake_reference_.as(current);
@@ -1004,8 +1037,63 @@ function ContentViewModel(props) {
     pickRemakeShotMode(value) {
       remake_shot_mode_.as(value === "plot" ? "plot" : "scene");
     },
+    pickRemakeStoryModel(value) {
+      const raw = String(value || "").trim();
+      if (raw === "seedream") remake_story_model_.as("seedream");
+      else if (raw === "mj-img" || raw === "mj" || raw === "mj_imagine") {
+        remake_story_model_.as("mj-img");
+      } else if (raw === "mu-image" || raw === "muse-image") {
+        remake_story_model_.as("mu-image");
+      } else remake_story_model_.as("gt-image");
+    },
+    toggleRemakeStoryUseRef(shotId) {
+      const id = String(shotId || "").trim();
+      if (!id) return;
+      remake_story_use_refs[id] = remake_story_use_refs[id] === false;
+      remake_story_rows_.as(
+        (remake_story_rows_.value || []).map((row) => {
+          if (String(row.id || "") !== id) return row;
+          const useRef = remake_story_use_refs[id] !== false;
+          return {
+            ...row,
+            useRef,
+            rowKey: `${row.rowKey || id}:ref${useRef ? "1" : "0"}`,
+          };
+        }),
+      );
+    },
     runRemakeShots() {
       return run_remake_shots();
+    },
+    runRemakeStoryboard(shotId) {
+      return run_remake_storyboard(shotId);
+    },
+    runRemakeStoryPrompts(shotId) {
+      return run_remake_story_prompts(shotId);
+    },
+    runRemakeStoryScript(shotId) {
+      return run_remake_story_script(shotId);
+    },
+    updateRemakeStoryScript(shotId, script) {
+      return update_remake_story_script(shotId, script);
+    },
+    runRemakeStoryVideo(shotId) {
+      return run_remake_story_video(shotId);
+    },
+    updateRemakeStoryPrompt(shotId, prompt) {
+      return update_remake_story_prompt(shotId, prompt);
+    },
+    updateRemakeStoryVideoPrompt(shotId, prompt) {
+      return update_remake_story_video_prompt(shotId, prompt);
+    },
+    openRemakeBoard(board) {
+      return open_remake_board(board);
+    },
+    closeRemakeBoard() {
+      return close_remake_board();
+    },
+    saveRemakeBoard() {
+      return save_remake_board();
     },
     pickRemakeShot(shot) {
       return pick_remake_shot(shot);
@@ -1027,7 +1115,7 @@ function ContentViewModel(props) {
       delete_task_title_.as(
         String((content && content.title) || "下载任务").trim() || "下载任务",
       );
-      delete_files_.as(false);
+      delete_files_.as(true);
       ui.deleteConfirmDialog$.show();
       return true;
     },
@@ -1064,6 +1152,7 @@ function ContentViewModel(props) {
     reverse_message: reverse_message_,
     reverse_action_label: reverse_action_label_,
     reverse_vlm: reverse_vlm_,
+    reverse_vlm_frames: reverse_vlm_frames_,
     transcript_title: transcript_title_,
     transcript_text: transcript_text_,
     transcript_message: transcript_message_,
@@ -1089,9 +1178,17 @@ function ContentViewModel(props) {
     remake_reference: remake_reference_,
     remake_image_name: remake_image_name_,
     remake_shots: remake_shots_,
+    remake_story_rows: remake_story_rows_,
+    remake_story_busy_id: remake_story_busy_id_,
+    remake_board_preview: remake_board_preview_,
     remake_shot_mode: remake_shot_mode_,
+    remake_story_model: remake_story_model_,
+    remake_story_refs: remake_story_refs_,
+    remake_story_script: remake_story_script_,
+    remake_reverse_label: remake_reverse_label_,
     remake_shot_message: remake_shot_message_,
     remake_shot_busy: remake_shot_busy_,
+    remake_shot_phase: remake_shot_phase_,
     remake_prompt: remake_prompt_,
     delete_task_title: delete_task_title_,
     delete_task_count: computed(delete_task_ids_, (ids) =>
@@ -1595,6 +1692,16 @@ function ContentViewModel(props) {
       ui.btn_reverse_copy$.disable();
       ui.btn_reverse_open$.disable();
       ui.btn_reverse_rerun$.enable();
+      if (remake_fill_from_reverse) {
+        remake_fill_from_reverse = false;
+        remake_reverse_label_.as("视频反推");
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_shot_message_.as(
+          (payload && (payload.message || payload.error)) || "视频反推失败",
+        );
+        sync_remake_run_button();
+      }
       return;
     }
     if (payload.status === "running") {
@@ -1603,18 +1710,45 @@ function ContentViewModel(props) {
       ui.btn_reverse_copy$.disable();
       ui.btn_reverse_open$.disable();
       ui.btn_reverse_rerun$.disable();
+      if (remake_fill_from_reverse) {
+        remake_reverse_label_.as("反推中");
+        remake_shot_busy_.as(true);
+        remake_shot_phase_.as("reverse");
+        remake_shot_message_.as(payload.message || "正在视频反推…");
+        remake_message_.as(payload.message || "正在视频反推…");
+        sync_remake_run_button();
+      }
       return;
     }
     if (payload.status === "ready") {
       stop_reverse_poll();
-      reverse_text_.as(String(payload.text || ""));
+      const preview = String(payload.text || "");
+      reverse_text_.as(preview);
       reverse_action_label_.as("重新反推");
       reverse_message_.as(payload.message || "视频反推完成");
       set_reverse_job(id, "ready");
-      if (String(payload.text || "").trim()) ui.btn_reverse_copy$.enable();
+      if (preview.trim()) ui.btn_reverse_copy$.enable();
       else ui.btn_reverse_copy$.disable();
       ui.btn_reverse_open$.enable();
       ui.btn_reverse_rerun$.enable();
+      ui.btn_remake_reverse_report$.enable();
+      const remake_source = String(remake_source_.value || "").trim();
+      const reverse_source = String(reverse_path_.value || "").trim();
+      if (
+        remake_fill_from_reverse ||
+        (remake_source && reverse_source && remake_source === reverse_source)
+      ) {
+        remake_prompt_.as(preview);
+      }
+      if (remake_fill_from_reverse) {
+        remake_fill_from_reverse = false;
+        remake_reverse_label_.as("视频反推");
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_shot_message_.as(payload.message || "视频反推完成。");
+        remake_message_.as(payload.message || "视频反推完成。");
+        sync_remake_run_button();
+      }
       return;
     }
     stop_reverse_poll();
@@ -1686,6 +1820,7 @@ function ContentViewModel(props) {
           path: media_path,
           force: Boolean(force),
           use_vlm: reverse_vlm_.value !== false,
+          vlm_images: reverse_vlm_frames_.value === "all" ? 0 : 3,
         }),
       });
       const payload = await response.json().catch(() => ({}));
@@ -1804,6 +1939,43 @@ function ContentViewModel(props) {
     return true;
   }
 
+  function open_remake_reverse_report() {
+    const media_path = String(
+      remake_source_.value || reverse_path_.value || "",
+    ).trim();
+    if (!media_path) return null;
+    reverse_path_.as(media_path);
+    const url = `${task_console_origin()}/api/video-reverse/report?path=${encodeURIComponent(media_path)}`;
+    window.open(url, "_blank", "noopener");
+    return true;
+  }
+
+  async function refresh_remake_reverse_report(media_path) {
+    const path = String(media_path || remake_source_.value || "").trim();
+    if (!path) {
+      ui.btn_remake_reverse_report$.disable();
+      return false;
+    }
+    try {
+      const response = await fetch(
+        `${task_console_origin()}/api/video-reverse?path=${encodeURIComponent(path)}`,
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (payload && payload.status === "ready") {
+        reverse_path_.as(path);
+        reverse_text_.as(String(payload.text || ""));
+        remake_prompt_.as(String(payload.text || ""));
+        ui.btn_remake_reverse_report$.enable();
+        return true;
+      }
+      ui.btn_remake_reverse_report$.disable();
+      return false;
+    } catch (_error) {
+      ui.btn_remake_reverse_report$.disable();
+      return false;
+    }
+  }
+
   function set_remake_job(id, status) {
     if (!id) return;
     const jobs = { ...(remake_jobs_.value || {}) };
@@ -1825,7 +1997,7 @@ function ContentViewModel(props) {
       ...(remake_reference_.value || {}),
     };
     current.source = current.source !== false;
-    if (!["hailuo", "hailuo-2-3", "buming-h3", "mu-video"].includes(current.model)) current.model = "mu-video";
+    if (!["hailuo", "hailuo-2-3", "buming-h3", "wan-3-0", "mu-video"].includes(current.model)) current.model = "mu-video";
     if (typeof ready === "boolean") current.whiteReady = ready;
     if (!current.whiteReady) current.white = false;
     return current;
@@ -1857,7 +2029,11 @@ function ContentViewModel(props) {
 
   function remake_request_flags() {
     const selected = normalize_remake_reference();
-    if (selected.model === "hailuo" || selected.model === "buming-h3") {
+    if (
+      selected.model === "hailuo" ||
+      selected.model === "buming-h3" ||
+      selected.model === "wan-3-0"
+    ) {
       return {
         model: selected.model,
         use_original: Boolean(selected.source),
@@ -1874,9 +2050,10 @@ function ContentViewModel(props) {
   function sync_remake_run_button() {
     const running = remake_progress_.value >= 0 && remake_progress_.value < 100;
     const source_ready = Boolean(String(remake_source_.value || "").trim());
-    if (running || !source_ready) ui.btn_remake_run$.disable();
+    const shot_busy = Boolean(remake_shot_busy_.value);
+    if (running || !source_ready || shot_busy) ui.btn_remake_run$.disable();
     else ui.btn_remake_run$.enable();
-    if (running || !source_ready) ui.btn_remake_prompt$.disable();
+    if (running || !source_ready || shot_busy) ui.btn_remake_prompt$.disable();
     else ui.btn_remake_prompt$.enable();
   }
 
@@ -1929,7 +2106,7 @@ function ContentViewModel(props) {
       sync_remake_run_button();
       return;
     }
-    remake_message_.as(payload.message || "可以预览提示词，或生成 5 秒预览。");
+    remake_message_.as(payload.message || "可先视频反推，再按镜生图。");
     remake_progress_.as(-1);
     set_remake_job(id, "");
     sync_remake_run_button();
@@ -1973,24 +2150,241 @@ function ContentViewModel(props) {
     return clock || label || "关键帧";
   }
 
+  function is_weak_story_prompt(text) {
+    const raw = String(text || "").trim();
+    return !raw || raw.startsWith("按参考图重绘这一镜头的分镜静帧");
+  }
+
+  function story_image_label(model) {
+    const key = String(model || "").trim();
+    if (key === "seedream") return "Seedream 5.0";
+    if (key === "gt-image" || key === "gt-image-2" || key === "gpt-image-2") {
+      return "GT Image 2";
+    }
+    if (key === "mu-image") return "MU 生图";
+    if (key === "mj-img" || key === "mj") return "MJ";
+    return "GT Image 2";
+  }
+
+  function is_pull_shot_message(text) {
+    const raw = String(text || "").trim();
+    if (!raw) return false;
+    if (
+      /分镜图已|分镜视频|提示词已|花费\s*¥|正在用|DeepSeek|MU 生图|Seedream|动态提示词|已从视频反推填充/.test(
+        raw,
+      )
+    ) {
+      return false;
+    }
+    return /抽出|拉片|情节|画面变化|没有文案|没有配置|反推/.test(raw);
+  }
+
+  function set_story_row_status(shotId, status) {
+    const target = String(shotId || "").trim();
+    const note = String(status || "").trim();
+    if (!target || !note) return;
+    remake_shot_frames = (remake_shot_frames || []).map((frame) => {
+      if (String(frame.id || "") !== target) return frame;
+      return { ...frame, status: note };
+    });
+  }
+
   function show_remake_shots(frames, selectedId) {
     const selected = String(selectedId || "");
+    const busy_id = String(remake_story_busy_id_.value || "");
     remake_shot_frames = Array.isArray(frames) ? frames : [];
     remake_shots_.as(
-      remake_shot_frames.map((frame) => ({
-        id: String(frame.id || ""),
-        path: String(frame.path || ""),
-        url: frame.path ? `${file_href(frame.path, false)}&t=${Date.now()}` : "",
-        caption: shot_caption(frame),
-        selected: String(frame.id || "") === selected,
-      })),
+      remake_shot_frames.map((frame) => {
+        const picture = String(frame.path || "");
+        return {
+          id: String(frame.id || ""),
+          path: picture,
+          url: picture ? `${file_href(picture, false)}&t=${Date.now()}` : "",
+          caption: shot_caption(frame),
+          selected: String(frame.id || "") === selected,
+        };
+      }),
     );
+    remake_story_rows_.as(
+      remake_shot_frames.map((frame) => {
+        const id = String(frame.id || "");
+        const picture = String(frame.path || "");
+        const generated = String(frame.generated || "").trim();
+        const video = String(frame.video || "").trim();
+        const saved = String(frame.prompt || "").trim();
+        const saved_video = String(frame.video_prompt || "").trim();
+        const raw_status = String(frame.status || "").trim();
+        const status = /分镜脚本已写好/.test(raw_status) ? "" : raw_status;
+        const saved_script = String(frame.script || "").trim();
+        if (saved && !is_weak_story_prompt(saved)) {
+          remake_story_prompts[id] = saved;
+        } else if (saved && is_weak_story_prompt(remake_story_prompts[id] || "")) {
+          remake_story_prompts[id] = "";
+        } else if (!(id in remake_story_prompts)) {
+          remake_story_prompts[id] = is_weak_story_prompt(saved) ? "" : saved;
+        }
+        if (saved_video) {
+          remake_story_video_prompts[id] = saved_video;
+        } else if (!(id in remake_story_video_prompts)) {
+          remake_story_video_prompts[id] = remake_story_prompts[id] || "";
+        }
+        if (saved_script) {
+          remake_story_scripts[id] = saved_script;
+        } else if (!(id in remake_story_scripts)) {
+          remake_story_scripts[id] = "";
+        }
+        if (!(id in remake_story_use_refs)) {
+          remake_story_use_refs[id] = true;
+        }
+        const prompt = remake_story_prompts[id] || "";
+        const video_prompt = remake_story_video_prompts[id] || "";
+        const shot_script = remake_story_scripts[id] || "";
+        const use_ref = remake_story_use_refs[id] !== false;
+        const version = [
+          prompt.length,
+          prompt.slice(0, 16),
+          video_prompt.length,
+          video_prompt.slice(0, 16),
+          generated ? "1" : "0",
+          video ? "1" : "0",
+          status.length,
+          status.slice(0, 16),
+          shot_script.length,
+          shot_script.slice(0, 16),
+          use_ref ? "1" : "0",
+        ].join(":");
+        return {
+          id,
+          rowKey: `${id}:${version}`,
+          path: picture,
+          url: picture ? `${file_href(picture, false)}&t=${Date.now()}` : "",
+          caption: shot_caption(frame),
+          prompt,
+          videoPrompt: video_prompt,
+          generated,
+          generatedUrl: generated
+            ? `${file_href(generated, false)}&t=${Date.now()}`
+            : "",
+          video,
+          videoUrl: video ? `${file_href(video, false)}&t=${Date.now()}` : "",
+          status,
+          script: shot_script,
+          useRef: use_ref,
+          busy: Boolean(busy_id && busy_id === id),
+        };
+      }),
+    );
+  }
+
+  function update_remake_story_script(shotId, script) {
+    const id = String(shotId || "").trim();
+    if (!id) return;
+    remake_story_scripts[id] = String(script || "");
+    remake_shot_frames = (remake_shot_frames || []).map((frame) => {
+      if (String(frame.id || "") !== id) return frame;
+      return { ...frame, script: remake_story_scripts[id] };
+    });
+    remake_story_rows_.as(
+      (remake_story_rows_.value || []).map((row) => {
+        if (row.id !== id) return row;
+        const next = remake_story_scripts[id];
+        return {
+          ...row,
+          script: next,
+          rowKey: `${id}:s:${String(next.length)}:${next.slice(0, 24)}`,
+        };
+      }),
+    );
+  }
+
+  function update_remake_story_prompt(shotId, prompt) {
+    const id = String(shotId || "").trim();
+    if (!id) return;
+    remake_story_prompts[id] = String(prompt || "");
+    if (!String(remake_story_video_prompts[id] || "").trim()) {
+      remake_story_video_prompts[id] = remake_story_prompts[id];
+    }
+    remake_story_rows_.as(
+      (remake_story_rows_.value || []).map((row) => {
+        if (row.id !== id) return row;
+        const next = remake_story_prompts[id];
+        const video_prompt = remake_story_video_prompts[id] || "";
+        return {
+          ...row,
+          prompt: next,
+          videoPrompt: video_prompt,
+          rowKey: `${id}:${String(next.length)}:${next.slice(0, 16)}:${String(video_prompt.length)}`,
+        };
+      }),
+    );
+  }
+
+  function update_remake_story_video_prompt(shotId, prompt) {
+    const id = String(shotId || "").trim();
+    if (!id) return;
+    remake_story_video_prompts[id] = String(prompt || "");
+    remake_story_rows_.as(
+      (remake_story_rows_.value || []).map((row) => {
+        if (row.id !== id) return row;
+        const next = remake_story_video_prompts[id];
+        return {
+          ...row,
+          videoPrompt: next,
+          rowKey: `${id}:v:${String(next.length)}:${next.slice(0, 24)}`,
+        };
+      }),
+    );
+  }
+
+  function open_remake_board(board) {
+    const url = String((board && board.url) || "").trim();
+    if (!url) return;
+    remake_board_preview_.as({
+      url,
+      path: String((board && board.path) || "").trim(),
+      caption: String((board && board.caption) || "").trim(),
+      kind: String((board && board.kind) || "").trim() === "video" ? "video" : "image",
+    });
+  }
+
+  function close_remake_board() {
+    remake_board_preview_.as(null);
+  }
+
+  function save_remake_board() {
+    const board = remake_board_preview_.value;
+    if (!board) return false;
+    const path = String(board.path || "").trim();
+    if (path) {
+      download_href(path);
+      return true;
+    }
+    const url = String(board.url || "").trim();
+    if (!url) return false;
+    let href = url;
+    try {
+      const parsed = new URL(url, window.location.origin);
+      parsed.searchParams.set("download", "1");
+      href = parsed.toString();
+    } catch (_error) {
+      href = url.includes("download=1")
+        ? url
+        : `${url}${url.includes("?") ? "&" : "?"}download=1`;
+    }
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = "";
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return true;
   }
 
   async function refresh_remake_shots(path) {
     remake_shot_id_.as("");
     show_remake_shots([], "");
-    remake_shot_message_.as("拉片后关键帧会留在这里，点一张就能当作参考图。");
+    remake_shot_message_.as("拉片后关键帧会留在这里，点一张可放大查看；生图参考用分镜表中的参考图。");
     const source = String(path || "").trim();
     if (!source) return;
     try {
@@ -2001,9 +2395,13 @@ function ContentViewModel(props) {
       if (!response.ok || !payload || payload.ok === false) return;
       if (String(remake_source_.value || "") !== source) return;
       show_remake_shots(payload.frames || [], "");
-      if (payload.message) remake_shot_message_.as(payload.message);
-      else if ((payload.frames || []).length) {
-        remake_shot_message_.as("点一张关键帧，就能当作参考图。");
+      if (typeof payload.script === "string") {
+        remake_story_script_.as(payload.script);
+      }
+      if (payload.message && is_pull_shot_message(payload.message)) {
+        remake_shot_message_.as(payload.message);
+      } else if ((payload.frames || []).length) {
+        remake_shot_message_.as("点关键帧可放大查看；生成分镜图时用表中参考图。");
       }
     } catch (_error) {
       remake_shot_message_.as("拉片记录暂时读不出来。");
@@ -2014,8 +2412,16 @@ function ContentViewModel(props) {
     const source = String(remake_source_.value || "").trim();
     if (!source || remake_shot_busy_.value) return null;
     const mode = remake_shot_mode_.value === "plot" ? "plot" : "scene";
+    remake_shot_phase_.as("shots");
     remake_shot_busy_.as(true);
+    sync_remake_run_button();
     remake_shot_message_.as(mode === "plot" ? "正在按情节拉片…" : "正在按画面拉片…");
+    Object.keys(remake_story_prompts).forEach((key) => {
+      delete remake_story_prompts[key];
+    });
+    Object.keys(remake_story_video_prompts).forEach((key) => {
+      delete remake_story_video_prompts[key];
+    });
     try {
       const response = await fetch(`${task_console_origin()}/api/video-remake/shots`, {
         method: "POST",
@@ -2030,129 +2436,530 @@ function ContentViewModel(props) {
       if (String(remake_source_.value || "") !== source) return payload;
       remake_shot_id_.as("");
       show_remake_shots(payload.frames || [], "");
-      remake_shot_message_.as(payload.message || "拉片完成。点一张就能当作参考图。");
+      remake_shot_message_.as(payload.message || "拉片完成。点关键帧可放大查看；生图用表中参考图。");
       return payload;
     } catch (_error) {
       remake_shot_message_.as("任务服务没有在运行。拉片需要本机任务页保持启动。");
       return null;
     } finally {
       remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      sync_remake_run_button();
     }
   }
 
-  async function pick_remake_shot(shot) {
-    const path = String((shot && shot.path) || "").trim();
-    const url = String((shot && shot.url) || "").trim();
-    if (!path || !url) return false;
-    remake_shot_id_.as(String(shot.id || ""));
-    show_remake_shots(remake_shot_frames, shot.id);
+  async function poll_remake_storyboard(source, shotId) {
+    const target = String(shotId || "").trim();
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("读取关键帧失败");
-      const blob = await response.blob();
-      remake_image_file = new File([blob], `shot-${shot.id || "frame"}.jpg`, {
-        type: blob.type || "image/jpeg",
-      });
-      remake_image_name_.as(shot.caption || "已选关键帧");
-      remake_shot_message_.as("这张关键帧会作为参考图。");
+      const response = await fetch(
+        `${task_console_origin()}/api/video-remake/storyboard?path=${encodeURIComponent(source)}`,
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (String(remake_source_.value || "") !== source) return payload;
+      if (payload && typeof payload.script === "string") {
+        remake_story_script_.as(payload.script);
+      }
+      if (payload && Array.isArray(payload.frames)) {
+        Object.keys(remake_story_prompts).forEach((key) => {
+          delete remake_story_prompts[key];
+        });
+        Object.keys(remake_story_video_prompts).forEach((key) => {
+          delete remake_story_video_prompts[key];
+        });
+        (payload.frames || []).forEach((frame) => {
+          const id = String((frame && frame.id) || "");
+          const text = String((frame && frame.prompt) || "").trim();
+          const video_text = String((frame && frame.video_prompt) || "").trim();
+          if (id && text && !is_weak_story_prompt(text)) {
+            remake_story_prompts[id] = text;
+          }
+          if (id && video_text) {
+            remake_story_video_prompts[id] = video_text;
+          }
+        });
+        show_remake_shots(payload.frames, remake_shot_id_.value);
+      }
+      if (payload && payload.status === "running") {
+        remake_story_busy_id_.as(String(payload.shot_id || target));
+        const mode = String((payload && payload.mode) || "");
+        remake_shot_phase_.as(
+          mode === "prompt"
+            ? "story-prompt"
+            : mode === "script"
+              ? "story-script"
+              : mode === "video"
+                ? "story-video"
+                : "story",
+        );
+        const running_note =
+          payload.message ||
+          (mode === "prompt"
+            ? "正在用 DeepSeek 写分镜提示词…"
+            : mode === "video"
+              ? `正在生成第 ${target} 镜视频…`
+              : `正在用 ${story_image_label(remake_story_model_.value)} 生成第 ${target} 镜…`);
+        set_story_row_status(payload.shot_id || target, running_note);
+        show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+        window.setTimeout(() => poll_remake_storyboard(source, target), 2000);
+        return payload;
+      }
+      const phase = String(remake_shot_phase_.value || "");
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_story_busy_id_.as("");
       sync_remake_run_button();
-      return true;
+      const failed = (Array.isArray(payload && payload.jobs) ? payload.jobs : []).find(
+        (job) => {
+          if (!job || job.status !== "error") return false;
+          const sid = String(job.shot_id || "").trim();
+          if (target && sid && sid !== target) return false;
+          const mode = String(job.mode || "");
+          if (phase === "story-video") return mode === "video";
+          if (phase === "story-script") return mode === "script";
+          if (phase === "story-prompt") return mode === "prompt";
+          return mode === "image" || !mode;
+        },
+      );
+      if (failed) {
+        const err = String(failed.error || failed.message || "生成失败");
+        set_story_row_status(failed.shot_id || target, err);
+        remake_shot_message_.as(err);
+        show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+        return payload;
+      }
+      const done_mode = String((payload && payload.mode) || "");
+      if (done_mode === "script") {
+        const shot = String((payload && payload.shot_id) || target || "").trim();
+        if (shot) {
+          set_story_row_status(shot, "");
+        } else {
+          remake_shot_frames = (remake_shot_frames || []).map((frame) => ({
+            ...frame,
+            status: /分镜脚本|写分镜脚本/.test(String(frame.status || ""))
+              ? ""
+              : frame.status,
+          }));
+        }
+        if (payload && payload.error) {
+          remake_shot_message_.as(payload.error);
+        } else if (payload && payload.message) {
+          remake_shot_message_.as(payload.message);
+        }
+      } else {
+        const done_note =
+          (payload && (payload.message || payload.error)) ||
+          (done_mode === "prompt"
+            ? "分镜提示词已写好。"
+            : done_mode === "video"
+              ? `第 ${target} 镜视频已生成。`
+              : `第 ${target} 镜分镜图已生成。`);
+        set_story_row_status(
+          payload && payload.shot_id ? payload.shot_id : target,
+          done_note,
+        );
+      }
+      show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+      return payload;
     } catch (_error) {
-      remake_image_file = null;
-      remake_image_name_.as("可以不选参考图");
-      remake_shot_message_.as("这张关键帧读不出来。");
-      return false;
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_story_busy_id_.as("");
+      sync_remake_run_button();
+      set_story_row_status(target, "任务服务没有在运行。生成分镜图需要本机任务页保持启动。");
+      show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+      return null;
     }
+  }
+
+  async function run_remake_story_script(shotId) {
+    const source = String(remake_source_.value || "").trim();
+    const target = String(shotId || "").trim();
+    if (!source || remake_shot_busy_.value) return null;
+    if (!(remake_shot_frames || []).length) {
+      remake_shot_message_.as("先拉片，再生成分镜脚本。");
+      return null;
+    }
+    remake_shot_phase_.as("story-script");
+    remake_shot_busy_.as(true);
+    remake_story_busy_id_.as(target);
+    sync_remake_run_button();
+    const writing_note = target
+      ? `正在写第 ${target} 镜分镜脚本…`
+      : "正在按镜头批量写分镜脚本…";
+    if (target) set_story_row_status(target, writing_note);
+    remake_shot_message_.as(writing_note);
+    show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+    try {
+      const response = await fetch(
+        `${task_console_origin()}/api/video-remake/storyboard-script`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: source,
+            shot_id: target,
+            note: String(remake_note_.value || "").trim(),
+          }),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload || payload.ok === false) {
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_story_busy_id_.as("");
+        sync_remake_run_button();
+        remake_shot_message_.as((payload && payload.error) || "写分镜脚本失败");
+        return payload;
+      }
+      if (typeof payload.script === "string" && payload.script.trim()) {
+        remake_story_script_.as(payload.script);
+      }
+      return poll_remake_storyboard(source, target);
+    } catch (_error) {
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_story_busy_id_.as("");
+      sync_remake_run_button();
+      remake_shot_message_.as("任务服务没有在运行。写分镜脚本需要本机任务页保持启动。");
+      return null;
+    }
+  }
+
+  async function run_remake_story_prompts(shotId) {
+    const source = String(remake_source_.value || "").trim();
+    const target = String(shotId || "").trim();
+    if (!source || remake_shot_busy_.value) return null;
+    if (!(remake_shot_frames || []).length) {
+      remake_shot_message_.as("先拉片，再写分镜提示词。");
+      return null;
+    }
+    remake_shot_phase_.as("story-prompt");
+    remake_shot_busy_.as(true);
+    remake_story_busy_id_.as(target);
+    sync_remake_run_button();
+    show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+    remake_shot_message_.as(
+      target
+        ? `正在用 DeepSeek 写第 ${target} 镜提示词…`
+        : "正在用 DeepSeek 为每镜写专业提示词…",
+    );
+    try {
+      const response = await fetch(
+        `${task_console_origin()}/api/video-remake/storyboard-prompts`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: source,
+            shot_id: target,
+            note: String(remake_note_.value || "").trim(),
+          }),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload || payload.ok === false) {
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_story_busy_id_.as("");
+        sync_remake_run_button();
+        show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+        remake_shot_message_.as((payload && payload.error) || "写分镜提示词失败");
+        return payload;
+      }
+      if (payload && Array.isArray(payload.frames)) {
+        show_remake_shots(payload.frames, remake_shot_id_.value);
+      }
+      return poll_remake_storyboard(source, target);
+    } catch (_error) {
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_story_busy_id_.as("");
+      sync_remake_run_button();
+      show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+      remake_shot_message_.as("任务服务没有在运行。写提示词需要本机任务页保持启动。");
+      return null;
+    }
+  }
+
+  async function run_remake_storyboard(shotId) {
+    const source = String(remake_source_.value || "").trim();
+    const target = String(shotId || "").trim();
+    if (!source || !target || remake_shot_busy_.value) return null;
+    remake_shot_phase_.as("story");
+    remake_shot_busy_.as(true);
+    remake_story_busy_id_.as(target);
+    sync_remake_run_button();
+    show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+    const draft = String(remake_story_prompts[target] || "").trim();
+    const picked = String(remake_story_model_.value || "").trim();
+    const image_model =
+      picked === "seedream"
+        ? "seedream"
+        : picked === "mj-img" || picked === "mj"
+          ? "mj-img"
+          : picked === "mu-image" || picked === "muse-image"
+            ? "mu-image"
+            : "gt-image";
+    remake_shot_message_.as(
+      is_weak_story_prompt(draft)
+        ? `正在用 DeepSeek 写第 ${target} 镜专业提示词，再生成…`
+        : `正在用 ${story_image_label(image_model)} 生成第 ${target} 镜…`,
+    );
+    try {
+      const response = await fetch(`${task_console_origin()}/api/video-remake/storyboard`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: source,
+          shot_id: target,
+          prompt: draft,
+          note: String(remake_note_.value || "").trim(),
+          image_model,
+          reference_ids: (remake_story_refs_.value || []).filter((item) => item && item.selected !== false).map((item) => item.id),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload || payload.ok === false) {
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_story_busy_id_.as("");
+        sync_remake_run_button();
+        show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+        remake_shot_message_.as((payload && payload.error) || "生成分镜图失败");
+        return payload;
+      }
+      if (payload && Array.isArray(payload.frames)) {
+        show_remake_shots(payload.frames, remake_shot_id_.value);
+      }
+      return poll_remake_storyboard(source, target);
+    } catch (_error) {
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_story_busy_id_.as("");
+      sync_remake_run_button();
+      show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+      remake_shot_message_.as("任务服务没有在运行。生成分镜图需要本机任务页保持启动。");
+      return null;
+    }
+  }
+
+  async function run_remake_story_video(shotId) {
+    const source = String(remake_source_.value || "").trim();
+    const target = String(shotId || "").trim();
+    if (!source || !target || remake_shot_busy_.value) return null;
+    const frame = (remake_shot_frames || []).find(
+      (item) => String(item.id || "") === target,
+    );
+    const draft = String(
+      remake_story_scripts[target] || (frame && frame.script) || "",
+    ).trim();
+    if (!draft) {
+      remake_shot_message_.as("先生成分镜脚本。");
+      return null;
+    }
+    if (!frame || !String(frame.generated || "").trim()) {
+      remake_shot_message_.as("先生成这一镜的分镜图；视频默认用结果图作参考。");
+      return null;
+    }
+    const selected = remake_reference_.value || {};
+    const video_model = String(selected.model || "mu-video");
+    remake_shot_phase_.as("story-video");
+    remake_shot_busy_.as(true);
+    remake_story_busy_id_.as(target);
+    sync_remake_run_button();
+    show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+    remake_shot_message_.as(`正在生成第 ${target} 镜视频…`);
+    try {
+      const response = await fetch(
+        `${task_console_origin()}/api/video-remake/storyboard-video`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            path: source,
+            shot_id: target,
+            prompt: draft,
+            note: String(remake_note_.value || "").trim(),
+            video_model,
+          }),
+        },
+      );
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload || payload.ok === false) {
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_story_busy_id_.as("");
+        sync_remake_run_button();
+        show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+        remake_shot_message_.as((payload && payload.error) || "生成分镜视频失败");
+        return payload;
+      }
+      if (payload && Array.isArray(payload.frames)) {
+        show_remake_shots(payload.frames, remake_shot_id_.value);
+      }
+      return poll_remake_storyboard(source, target);
+    } catch (_error) {
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_story_busy_id_.as("");
+      sync_remake_run_button();
+      show_remake_shots(remake_shot_frames, remake_shot_id_.value);
+      remake_shot_message_.as("任务服务没有在运行。生成分镜视频需要本机任务页保持启动。");
+      return null;
+    }
+  }
+
+  function pick_remake_shot(shot) {
+    const id = String((shot && shot.id) || "").trim();
+    if (!id) return false;
+    remake_shot_id_.as(id);
+    show_remake_shots(remake_shot_frames, id);
+    return true;
+  }
+
+  function remake_page_href(options = {}) {
+    const page = new URL(window.location.href);
+    page.pathname = "/remake";
+    page.search = "";
+    page.hash = "";
+    const id = String(options.id || "").trim();
+    const media_path = String(options.path || "").trim();
+    const title = String(options.title || "").trim();
+    if (id) page.searchParams.set("id", id);
+    if (media_path) page.searchParams.set("path", media_path);
+    if (title) page.searchParams.set("title", title);
+    return page.toString();
+  }
+
+  function seed_auth_for_new_tab() {
+    const key = "vf-auth-user";
+    try {
+      let user = sessionStorage.getItem(key) || localStorage.getItem(key);
+      if (!user && window.top && window.top !== window) {
+        try {
+          user =
+            window.top.sessionStorage.getItem(key) ||
+            window.top.localStorage.getItem(key);
+        } catch (_error) {
+          /* ignore cross-frame access */
+        }
+      }
+      if (user) {
+        localStorage.setItem(key, user);
+        sessionStorage.setItem(key, user);
+      }
+    } catch (_error) {
+      /* ignore storage access */
+    }
+  }
+
+  function open_remake_window(options = {}) {
+    seed_auth_for_new_tab();
+    const href = remake_page_href(options);
+    // 不用 noopener：新标签要继承登录态，否则 index.html 会踢到 /login
+    window.open(href, "_blank");
+    return href;
   }
 
   async function open_remake(content) {
     const id = String(first_non_empty(content && content.id, "")).trim();
     if (!id) return null;
-    stop_remake_poll();
     const title = String((content && content.title) || "视频复刻").trim() || "视频复刻";
-    const same = remake_content_id_.value === id;
-    remake_content_id_.as(id);
-    remake_title_.as(title);
-    if (!same) {
-      remake_image_file = null;
-      remake_image_name_.as("可以不选参考图");
-      remake_shot_mode_.as("scene");
-      remake_shot_busy_.as(false);
-      remake_reference_.as({ source: true, white: true, whiteReady: false, model: "mu-video" });
-      remake_url_.as("");
-      remake_path_.as("");
-      remake_error_.as("");
-      remake_progress_.as(-1);
-      remake_source_.as("");
-      remake_prompt_.as("");
-      remake_note_.as("");
-      ui.input_remake_note$.setValue("", { silence: true });
-    }
-    remake_message_.as("正在读取本地视频…");
-    ui.btn_remake_prompt$.disable();
-    ui.btn_remake_run$.disable();
-    ui.btn_remake_download$.disable();
-    ui.remakeDialog$.show();
     try {
       const detail = await fetch_content_detail(id);
-      if (remake_content_id_.value !== id) return null;
       const resource = pick_media_resource(detail);
       const media_path = String(
         first_non_empty(resource && resource.local_path, resource && resource.LocalPath),
       ).trim();
-      if (!media_path) {
-        remake_message_.as("这条内容没有可复刻的本地视频。");
-        return null;
-      }
-      remake_source_.as(media_path);
-      remake_message_.as("可以预览提示词，或生成 5 秒预览。");
-      sync_remake_run_button();
-      refresh_remake_white(media_path);
-      refresh_remake_shots(media_path);
-      const sequence = ++remake_sequence;
-      const payload = await refresh_remake(sequence, id);
-      if (payload && payload.status === "running") watch_remake(id);
-      return payload;
+      open_remake_window({ id, path: media_path, title });
+      return true;
     } catch (error) {
-      remake_message_.as(error && error.message ? error.message : "读取本地视频失败");
+      toast(error && error.message ? error.message : "读取本地视频失败");
       return null;
     }
   }
 
-  async function preview_remake_prompt() {
-    const id = String(remake_content_id_.value || "").trim();
+  async function fill_remake_from_reverse() {
     const source = String(remake_source_.value || "").trim();
-    if (!id || !source) return null;
-    const flags = remake_request_flags();
-    stop_remake_poll();
-    const sequence = ++remake_sequence;
-    remake_progress_.as(8);
-    remake_error_.as("");
-    remake_message_.as("正在根据原始视频写提示词…");
-    ui.btn_remake_prompt$.disable();
-    ui.btn_remake_run$.disable();
-    const body = new FormData();
-    body.append("path", source);
-    if (remake_image_file) body.append("image", remake_image_file, remake_image_file.name);
-    body.append("prompt_only", "1");
-    body.append("model", flags.model);
-    body.append("use_original", flags.use_original ? "1" : "0");
-    body.append("use_white", flags.use_white ? "1" : "0");
-    const note = String(remake_note_.value || "").trim();
-    if (note) body.append("note", note.slice(0, 2000));
+    if (!source) return null;
+    remake_shot_busy_.as(true);
+    remake_shot_phase_.as("reverse");
+    remake_reverse_label_.as("反推中");
+    sync_remake_run_button();
     try {
-      const response = await fetch(`${task_console_origin()}/api/video-remake`, {
-        method: "POST",
-        body,
-      });
+      const response = await fetch(
+        `${task_console_origin()}/api/video-remake/from-reverse`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: source }),
+        },
+      );
       const payload = await response.json().catch(() => ({}));
-      apply_remake_status(payload, sequence, id);
-      if (payload && payload.status === "running") watch_remake(id);
+      if (!response.ok || !payload || payload.ok === false) {
+        remake_shot_message_.as((payload && payload.error) || "按反推拆分镜头失败");
+        remake_message_.as((payload && payload.error) || "按反推拆分镜头失败");
+        return payload;
+      }
+      Object.keys(remake_story_prompts).forEach((key) => {
+        delete remake_story_prompts[key];
+      });
+      Object.keys(remake_story_video_prompts).forEach((key) => {
+        delete remake_story_video_prompts[key];
+      });
+      remake_shot_id_.as("");
+      show_remake_shots(payload.frames || [], "");
+      remake_shot_message_.as("点关键帧可放大查看；生成分镜图时用表中参考图。");
+      remake_message_.as("可先视频反推，再按镜生图。");
+      ui.btn_remake_reverse_report$.enable();
       return payload;
     } catch (_error) {
-      if (sequence !== remake_sequence) return null;
-      remake_message_.as("任务服务没有在运行。视频复刻需要本机任务页保持启动。");
-      remake_progress_.as(-1);
+      remake_shot_message_.as("任务服务没有在运行。按反推拆分镜头需要本机任务页保持启动。");
+      remake_message_.as("任务服务没有在运行。按反推拆分镜头需要本机任务页保持启动。");
+      return null;
+    } finally {
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_reverse_label_.as("视频反推");
+      sync_remake_run_button();
+    }
+  }
+
+  async function run_remake_reverse() {
+    const id = String(remake_content_id_.value || "").trim();
+    const source = String(remake_source_.value || "").trim();
+    if (!id || !source || remake_shot_busy_.value) return null;
+    remake_fill_from_reverse = true;
+    remake_reverse_label_.as("反推中");
+    remake_shot_busy_.as(true);
+    remake_shot_phase_.as("reverse");
+    remake_error_.as("");
+    remake_shot_message_.as("正在拆镜头（不看图写提示词）…");
+    remake_message_.as("正在拆镜头（不看图写提示词）…");
+    sync_remake_run_button();
+    // 复刻反推只拆镜头/声音，不走 VLM 写提示词。
+    reverse_vlm_.as(false);
+    reverse_vlm_frames_.as("3");
+    try {
+      const payload = await begin_reverse(id, source, true);
+      if (!payload || payload.ok === false || payload.status === "error") {
+        remake_fill_from_reverse = false;
+        remake_reverse_label_.as("视频反推");
+        remake_shot_busy_.as(false);
+        remake_shot_phase_.as("");
+        remake_shot_message_.as(
+          (payload && (payload.error || payload.message)) || "视频反推失败",
+        );
+        sync_remake_run_button();
+      }
+      return payload;
+    } catch (_error) {
+      remake_fill_from_reverse = false;
+      remake_reverse_label_.as("视频反推");
+      remake_shot_busy_.as(false);
+      remake_shot_phase_.as("");
+      remake_shot_message_.as("任务服务没有在运行。视频反推需要本机任务页保持启动。");
+      remake_message_.as("任务服务没有在运行。视频反推需要本机任务页保持启动。");
       sync_remake_run_button();
       return null;
     }
