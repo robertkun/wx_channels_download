@@ -54,6 +54,7 @@ function RemakePageView(props) {
         showStoryboard: false,
       }),
       DownloadV2WhiteModelDialog({ store: vm$ }),
+      DownloadV2ReverseDialog({ store: vm$ }),
     ],
   );
 }

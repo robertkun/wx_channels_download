@@ -34,7 +34,6 @@ workdir
 !pkg/cache/provider.go
 !pkg/cache/provider_test.go
 
-config.yaml
 global.js
 hooks.js
 downloads
