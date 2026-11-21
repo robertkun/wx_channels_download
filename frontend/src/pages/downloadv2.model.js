@@ -342,6 +342,7 @@ function DownloadV2Model(props = {}) {
   const transcript_message_ = ref("");
   const transcript_path_ = ref("");
   const transcript_task_id_ = ref("");
+  const audio_jobs_ = refobj({});
   const reverse_jobs_ = refobj({});
   const reverse_title_ = ref("视频反推");
   const reverse_action_label_ = ref("开始反推");
@@ -1101,6 +1102,75 @@ function DownloadV2Model(props = {}) {
     link.click();
     link.remove();
     return true;
+  }
+
+  function set_audio_job(id, status) {
+    if (!id) return;
+    audio_jobs_.as({ ...audio_jobs_.value, [id]: status });
+  }
+
+  function download_local_path(path) {
+    const media_path = String(path || "").trim();
+    if (!media_path) return false;
+    const link = document.createElement("a");
+    link.href = task_file_href(media_path, true);
+    link.download = "";
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return true;
+  }
+
+  async function extract_audio(task) {
+    let raw = task_snapshot(task);
+    const id = String(raw.id || "").trim();
+    if (!id) return null;
+    if (audio_jobs_.value[id] === "loading") return null;
+    if (normalize_download_status(raw.status) !== "done") {
+      if (window.DLUtils && DLUtils.toast) {
+        DLUtils.toast("请等这条任务下载完成后再提取音频");
+      }
+      return null;
+    }
+    set_audio_job(id, "loading");
+    try {
+      const resolved = await resolve_task_media_path(task, raw);
+      raw = resolved.raw;
+      const media_path = resolved.media_path;
+      if (!media_path) {
+        set_audio_job(id, "");
+        if (window.DLUtils && DLUtils.toast) {
+          DLUtils.toast("本地视频路径还没同步，请先点刷新");
+        }
+        return null;
+      }
+      const response = await fetch(`${task_console_origin()}/api/audio-extract`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: media_path }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.ok) {
+        throw new Error(payload.error || `音频提取失败（${response.status}）`);
+      }
+      const audio_path = String(payload.path || "").trim();
+      if (!audio_path) {
+        throw new Error("没有返回音频路径");
+      }
+      set_audio_job(id, "ready");
+      download_local_path(audio_path);
+      if (window.DLUtils && DLUtils.toast) {
+        DLUtils.toast(String(payload.message || "音频已提取，开始下载"));
+      }
+      return payload;
+    } catch (error) {
+      set_audio_job(id, "");
+      if (window.DLUtils && DLUtils.toast) {
+        DLUtils.toast(String((error && error.message) || "音频提取失败"));
+      }
+      return null;
+    }
   }
 
   function task_snapshot(task) {
@@ -4674,6 +4744,7 @@ function DownloadV2Model(props = {}) {
     showTaskFileURL: show_task_file_url,
     copyTaskFileURL: copy_task_file_url,
     downloadTaskFile: download_task_file,
+    extractAudio: extract_audio,
     openTranscript: open_transcript,
     rerunTranscript: rerun_transcript,
     copyTranscript: copy_transcript,
@@ -4874,6 +4945,7 @@ function DownloadV2Model(props = {}) {
     transcript_message: transcript_message_,
     transcript_action_label: transcript_action_label_,
     transcript_path: transcript_path_,
+    audio_jobs: audio_jobs_,
     reverse_jobs: reverse_jobs_,
     reverse_title: reverse_title_,
     reverse_text: reverse_text_,

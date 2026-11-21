@@ -450,6 +450,7 @@ export function DownloadV2TaskActions(props) {
     }),
     DownloadV2SaveAction({ store: vm$, task: task$ }),
     DownloadV2TranscriptAction({ store: vm$, task: task$ }),
+    DownloadV2AudioAction({ store: vm$, task: task$ }),
     DownloadV2RemakeAction({ store: vm$, task: task$ }),
     DownloadV2AnalyzeAction({ store: vm$, task: task$ }),
     DownloadV2TaskActionButton({
@@ -526,6 +527,51 @@ function DownloadV2TranscriptAction(props) {
       },
     },
     [Timeless.Icon({ name: "scroll-text", size: 18 })],
+  );
+}
+
+function DownloadV2AudioAction(props) {
+  const { store: vm$, task: task$ } = props;
+  const state_ = DownloadV2TaskState(task$);
+  const job_ = computed(vm$.state.audio_jobs, (jobs) => {
+    const raw = task$.state.raw && task$.state.raw.value;
+    const id = String((raw && raw.id) || "");
+    return (jobs && jobs[id]) || "";
+  });
+  const ready_ = computed(state_, (state) => state.is_completed);
+  const label_ = computed(job_, (job) => {
+    if (!ready_.value) return "视频还没下载完成";
+    if (job === "loading") return "提取中";
+    if (job === "ready") return "下载音频";
+    return "音频提取";
+  });
+  return View(
+    {
+      type: "button",
+      class: computed(job_, (job) =>
+        [
+          "dl-page-task-action",
+          job === "loading" ? "is-loading" : "",
+          !ready_.value && job !== "loading" ? "is-disabled" : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ),
+      attributes: {
+        type: "button",
+        title: label_,
+        "aria-label": label_,
+        "aria-disabled": computed(ready_, (ready) => (ready ? "false" : "true")),
+      },
+      onClick(event) {
+        if (event && typeof event.stopPropagation === "function") {
+          event.stopPropagation();
+        }
+        if (!ready_.value || job_.value === "loading") return;
+        vm$.methods.extractAudio(task$);
+      },
+    },
+    [Timeless.Icon({ name: "music", size: 18 })],
   );
 }
 
