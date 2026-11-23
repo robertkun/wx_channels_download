@@ -343,6 +343,15 @@ function DownloadV2Model(props = {}) {
   const transcript_path_ = ref("");
   const transcript_task_id_ = ref("");
   const audio_jobs_ = refobj({});
+  const audio_title_ = ref("音频提取");
+  const audio_message_ = ref("");
+  const audio_path_ = ref("");
+  const audio_task_id_ = ref("");
+  const audio_status_ = ref("idle");
+  const audio_action_label_ = ref("开始分离");
+  const audio_stems_ = refobj({ original: "", vocals: "", music: "" });
+  let audio_sequence = 0;
+  let audio_timer = null;
   const reverse_jobs_ = refobj({});
   const reverse_title_ = ref("视频反推");
   const reverse_action_label_ = ref("开始反推");
@@ -386,7 +395,7 @@ function DownloadV2Model(props = {}) {
   const remake_cut_step_ = ref(5);
   const remake_cut_busy_ = ref(false);
   const remake_cuts_ = ref([]);
-  const remake_cut_message_ = ref("按 5 秒或 10 秒切开后，每一段可以预览。");
+  const remake_cut_message_ = ref("按 5 秒、10 秒或 15 秒切开后，每一段可以预览。");
   const remake_story_model_ = ref("gt-image");
   const remake_prompt_llm_ = ref("deepseek");
   const remake_story_refs_ = ref([]);
@@ -662,6 +671,10 @@ function DownloadV2Model(props = {}) {
       closeable: true,
       footer: false,
     }),
+    audioDialog$: new Timeless.vm.DialogCore({
+      closeable: true,
+      footer: false,
+    }),
     fileUrlDialog$: new Timeless.vm.DialogCore({
       closeable: true,
       footer: false,
@@ -684,6 +697,34 @@ function DownloadV2Model(props = {}) {
       disabled: true,
       onClick() {
         return methods.rerunTranscript();
+      },
+    }),
+    btn_audio_original$: new Timeless.vm.ButtonCore({
+      variant: "outline",
+      disabled: true,
+      onClick() {
+        return methods.downloadAudioStem("original");
+      },
+    }),
+    btn_audio_vocals$: new Timeless.vm.ButtonCore({
+      variant: "outline",
+      disabled: true,
+      onClick() {
+        return methods.downloadAudioStem("vocals");
+      },
+    }),
+    btn_audio_music$: new Timeless.vm.ButtonCore({
+      variant: "outline",
+      disabled: true,
+      onClick() {
+        return methods.downloadAudioStem("music");
+      },
+    }),
+    btn_audio_rerun$: new Timeless.vm.ButtonCore({
+      variant: "outline",
+      disabled: true,
+      onClick() {
+        return methods.rerunAudioStems();
       },
     }),
     reverseDialog$: new Timeless.vm.DialogCore({
@@ -1122,55 +1163,273 @@ function DownloadV2Model(props = {}) {
     return true;
   }
 
+  function stop_audio_poll() {
+    if (audio_timer) {
+      window.clearInterval(audio_timer);
+      audio_timer = null;
+    }
+  }
+
+  function sync_audio_buttons(payload) {
+    const paths = (payload && payload.paths) || {};
+    const original = String(
+      (payload && payload.original) || paths.original || audio_stems_.value.original || "",
+    ).trim();
+    const vocals = String(
+      (payload && payload.vocals) || paths.vocals || audio_stems_.value.vocals || "",
+    ).trim();
+    const music = String(
+      (payload && payload.music) || paths.music || audio_stems_.value.music || "",
+    ).trim();
+    audio_stems_.as({ original, vocals, music });
+    if (original) ui.btn_audio_original$.enable();
+    else ui.btn_audio_original$.disable();
+    if (vocals) ui.btn_audio_vocals$.enable();
+    else ui.btn_audio_vocals$.disable();
+    if (music) ui.btn_audio_music$.enable();
+    else ui.btn_audio_music$.disable();
+  }
+
+  function apply_audio_status(payload, sequence, id) {
+    if (sequence !== audio_sequence) return;
+    if (!payload) return;
+    if (payload.ok === false && payload.status !== "error") {
+      stop_audio_poll();
+      audio_status_.as("error");
+      audio_action_label_.as("重新分离");
+      audio_message_.as(String(payload.error || payload.message || "音频提取失败"));
+      set_audio_job(id, "error");
+      sync_audio_buttons(payload);
+      ui.btn_audio_rerun$.enable();
+      return;
+    }
+    sync_audio_buttons(payload);
+    if (payload.status === "running") {
+      audio_status_.as("running");
+      audio_action_label_.as("分离中");
+      audio_message_.as(
+        String(payload.message || "正在分离人声和配乐，短视频大约需要一两分钟…"),
+      );
+      set_audio_job(id, "loading");
+      ui.btn_audio_rerun$.disable();
+      return;
+    }
+    if (payload.status === "ready") {
+      stop_audio_poll();
+      audio_status_.as("ready");
+      audio_action_label_.as("重新分离");
+      audio_message_.as(String(payload.message || "人声分离完成，可以分别下载。"));
+      set_audio_job(id, "ready");
+      ui.btn_audio_rerun$.enable();
+      return;
+    }
+    if (payload.status === "error") {
+      stop_audio_poll();
+      audio_status_.as("error");
+      audio_action_label_.as("重新分离");
+      audio_message_.as(String(payload.error || payload.message || "人声分离失败"));
+      set_audio_job(id, "error");
+      ui.btn_audio_rerun$.enable();
+      return;
+    }
+    stop_audio_poll();
+    audio_status_.as("idle");
+    audio_action_label_.as("开始分离");
+    audio_message_.as(String(payload.message || "点击「开始分离」提取原音、人声和配乐。"));
+    set_audio_job(id, "");
+    ui.btn_audio_rerun$.enable();
+  }
+
+  async function refresh_audio_stems(sequence, id) {
+    const source = String(audio_path_.value || "").trim();
+    if (!source) return null;
+    try {
+      const response = await fetch(
+        `${task_console_origin()}/api/audio-stems?path=${encodeURIComponent(source)}`,
+      );
+      const payload = await response.json().catch(() => ({}));
+      apply_audio_status(payload, sequence, id);
+      return payload;
+    } catch (_error) {
+      if (sequence !== audio_sequence) return null;
+      stop_audio_poll();
+      audio_status_.as("error");
+      audio_action_label_.as("重新分离");
+      audio_message_.as("任务服务没有在运行。音频提取需要本机任务页保持启动。");
+      set_audio_job(id, "error");
+      ui.btn_audio_rerun$.enable();
+      return null;
+    }
+  }
+
+  function watch_audio_stems(id) {
+    stop_audio_poll();
+    const sequence = audio_sequence;
+    audio_timer = window.setInterval(() => {
+      refresh_audio_stems(sequence, id);
+    }, 2500);
+  }
+
+  async function begin_audio_stems(id, media_path, force) {
+    const sequence = ++audio_sequence;
+    audio_path_.as(media_path);
+    set_audio_job(id, "loading");
+    ui.btn_audio_rerun$.disable();
+    if (!force) {
+      ui.btn_audio_vocals$.disable();
+      ui.btn_audio_music$.disable();
+    }
+    audio_status_.as("running");
+    audio_action_label_.as("分离中");
+    audio_message_.as(force ? "正在重新分离…" : "正在查找已有分离结果…");
+    try {
+      if (!force) {
+        const lookup = await fetch(
+          `${task_console_origin()}/api/audio-stems?path=${encodeURIComponent(media_path)}`,
+        );
+        const found = await lookup.json().catch(() => ({}));
+        if (sequence !== audio_sequence) return found;
+        if (
+          found &&
+          (found.status === "ready" ||
+            found.status === "running" ||
+            found.status === "error" ||
+            found.ok === false)
+        ) {
+          apply_audio_status(found, sequence, id);
+          if (found.status === "running") watch_audio_stems(id);
+          if (found.status === "ready" || found.status === "running" || found.status === "error") {
+            return found;
+          }
+        }
+      }
+      audio_message_.as("正在准备人声分离…");
+      const response = await fetch(`${task_console_origin()}/api/audio-stems`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          path: media_path,
+          force: Boolean(force),
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (sequence !== audio_sequence) return payload;
+      if (!response.ok || payload.ok === false) {
+        throw new Error(payload.error || payload.message || `音频提取失败（${response.status}）`);
+      }
+      apply_audio_status(payload, sequence, id);
+      if (payload && payload.status === "running") watch_audio_stems(id);
+      return payload;
+    } catch (error) {
+      if (sequence !== audio_sequence) return null;
+      const message = error && error.message ? error.message : String(error);
+      const offline = /Failed to fetch|NetworkError|Load failed/i.test(message);
+      stop_audio_poll();
+      audio_status_.as("error");
+      audio_action_label_.as("重新分离");
+      audio_message_.as(
+        offline
+          ? "任务服务没有在运行。音频提取需要本机任务页保持启动。"
+          : message,
+      );
+      set_audio_job(id, "error");
+      ui.btn_audio_rerun$.enable();
+      return null;
+    }
+  }
+
   async function extract_audio(task) {
     let raw = task_snapshot(task);
     const id = String(raw.id || "").trim();
     if (!id) return null;
-    if (audio_jobs_.value[id] === "loading") return null;
+    if (audio_jobs_.value[id] === "loading") {
+      ui.audioDialog$.show();
+      return null;
+    }
+    const title = String(raw.name || raw.title || "音频提取").trim() || "音频提取";
+    const sequence = ++audio_sequence;
+    stop_audio_poll();
+    audio_task_id_.as(id);
+    audio_title_.as(title);
+    audio_stems_.as({ original: "", vocals: "", music: "" });
+    audio_status_.as("idle");
+    audio_action_label_.as("开始分离");
+    audio_message_.as("点击「开始分离」提取原音、人声和配乐。");
+    ui.btn_audio_original$.disable();
+    ui.btn_audio_vocals$.disable();
+    ui.btn_audio_music$.disable();
+    ui.btn_audio_rerun$.disable();
+    ui.audioDialog$.show();
     if (normalize_download_status(raw.status) !== "done") {
-      if (window.DLUtils && DLUtils.toast) {
-        DLUtils.toast("请等这条任务下载完成后再提取音频");
-      }
+      audio_path_.as("");
+      audio_message_.as("请等这条任务下载完成后再提取音频。");
       return null;
     }
-    set_audio_job(id, "loading");
+    const resolved = await resolve_task_media_path(task, raw);
+    if (sequence !== audio_sequence) return null;
+    raw = resolved.raw;
+    const media_path = resolved.media_path;
+    audio_path_.as(media_path || "");
+    if (!media_path) {
+      audio_message_.as("本地视频路径还没同步，请先点刷新。");
+      ui.btn_audio_rerun$.enable();
+      return null;
+    }
     try {
-      const resolved = await resolve_task_media_path(task, raw);
-      raw = resolved.raw;
-      const media_path = resolved.media_path;
-      if (!media_path) {
-        set_audio_job(id, "");
-        if (window.DLUtils && DLUtils.toast) {
-          DLUtils.toast("本地视频路径还没同步，请先点刷新");
-        }
-        return null;
+      const response = await fetch(
+        `${task_console_origin()}/api/audio-stems?path=${encodeURIComponent(media_path)}`,
+      );
+      const found = await response.json().catch(() => ({}));
+      if (sequence !== audio_sequence) return null;
+      if (
+        found &&
+        (found.status === "ready" ||
+          found.status === "running" ||
+          found.status === "error" ||
+          found.ok === false)
+      ) {
+        apply_audio_status(found, sequence, id);
+        if (found.status === "running") watch_audio_stems(id);
+        return found;
       }
-      const response = await fetch(`${task_console_origin()}/api/audio-extract`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: media_path }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.ok) {
-        throw new Error(payload.error || `音频提取失败（${response.status}）`);
-      }
-      const audio_path = String(payload.path || "").trim();
-      if (!audio_path) {
-        throw new Error("没有返回音频路径");
-      }
-      set_audio_job(id, "ready");
-      download_local_path(audio_path);
-      if (window.DLUtils && DLUtils.toast) {
-        DLUtils.toast(String(payload.message || "音频已提取，开始下载"));
-      }
-      return payload;
-    } catch (error) {
-      set_audio_job(id, "");
-      if (window.DLUtils && DLUtils.toast) {
-        DLUtils.toast(String((error && error.message) || "音频提取失败"));
-      }
+      apply_audio_status(
+        { ok: true, status: "idle", message: "点击「开始分离」提取原音、人声和配乐。" },
+        sequence,
+        id,
+      );
+      return found;
+    } catch (_error) {
+      if (sequence !== audio_sequence) return null;
+      audio_message_.as("点击「开始分离」提取原音、人声和配乐。");
+      ui.btn_audio_rerun$.enable();
       return null;
     }
+  }
+
+  function rerun_audio_stems() {
+    const id = String(audio_task_id_.value || "").trim();
+    const media_path = String(audio_path_.value || "").trim();
+    if (!id || !media_path) return null;
+    if (audio_status_.value === "running") return null;
+    const force = audio_action_label_.value === "重新分离";
+    return begin_audio_stems(id, media_path, force);
+  }
+
+  function download_audio_stem(kind) {
+    const key = String(kind || "").trim();
+    const path = String((audio_stems_.value && audio_stems_.value[key]) || "").trim();
+    if (!path) {
+      if (window.DLUtils && DLUtils.toast) {
+        DLUtils.toast("这一轨还没准备好");
+      }
+      return false;
+    }
+    const ok = download_local_path(path);
+    if (ok && window.DLUtils && DLUtils.toast) {
+      const labels = { original: "原音", vocals: "人声", music: "配乐+环境声" };
+      DLUtils.toast(`${labels[key] || "音频"}开始下载`);
+    }
+    return ok;
   }
 
   function task_snapshot(task) {
@@ -3089,7 +3348,7 @@ function DownloadV2Model(props = {}) {
     const source = String(path || "").trim();
     if (!source) {
       show_remake_cuts([]);
-      remake_cut_message_.as("按 5 秒或 10 秒切开后，每一段可以预览。");
+      remake_cut_message_.as("按 5 秒、10 秒或 15 秒切开后，每一段可以预览。");
       return;
     }
     try {
@@ -3385,7 +3644,8 @@ function DownloadV2Model(props = {}) {
       remake_cut_message_.as("缺少视频路径，无法切割。请从下载列表重新打开视频复刻。");
       return null;
     }
-    const step = remake_cut_step_.value === 10 ? 10 : 5;
+    const raw_step = Number(remake_cut_step_.value);
+    const step = raw_step === 15 || raw_step === 10 ? raw_step : 5;
     remake_cut_busy_.as(true);
     remake_shot_phase_.as("cut");
     remake_cut_message_.as(`正在按 ${step} 秒切割…`);
@@ -3926,7 +4186,7 @@ function DownloadV2Model(props = {}) {
       remake_shot_mode_.as("scene");
       remake_cut_step_.as(5);
       remake_cuts_.as([]);
-      remake_cut_message_.as("按 5 秒或 10 秒切开后，每一段可以预览。");
+      remake_cut_message_.as("按 5 秒、10 秒或 15 秒切开后，每一段可以预览。");
       remake_shot_busy_.as(false);
       remake_shot_phase_.as("");
       remake_story_busy_map_.as({});
@@ -4745,6 +5005,8 @@ function DownloadV2Model(props = {}) {
     copyTaskFileURL: copy_task_file_url,
     downloadTaskFile: download_task_file,
     extractAudio: extract_audio,
+    rerunAudioStems: rerun_audio_stems,
+    downloadAudioStem: download_audio_stem,
     openTranscript: open_transcript,
     rerunTranscript: rerun_transcript,
     copyTranscript: copy_transcript,
@@ -4787,7 +5049,8 @@ function DownloadV2Model(props = {}) {
     },
     pickRemakeCutStep(value) {
       if (remake_cut_busy_.value) return;
-      remake_cut_step_.as(Number(value) === 10 ? 10 : 5);
+      const step = Number(value);
+      remake_cut_step_.as(step === 15 || step === 10 ? step : 5);
     },
     runRemakeCut() {
       return run_remake_cut();
@@ -4946,6 +5209,11 @@ function DownloadV2Model(props = {}) {
     transcript_action_label: transcript_action_label_,
     transcript_path: transcript_path_,
     audio_jobs: audio_jobs_,
+    audio_title: audio_title_,
+    audio_message: audio_message_,
+    audio_status: audio_status_,
+    audio_action_label: audio_action_label_,
+    audio_stems: audio_stems_,
     reverse_jobs: reverse_jobs_,
     reverse_title: reverse_title_,
     reverse_text: reverse_text_,
@@ -5076,6 +5344,7 @@ function DownloadV2Model(props = {}) {
     stop_live_refresh();
     stop_white_model_poll();
     stop_reverse_poll();
+    stop_audio_poll();
     request_sequence += 1;
     loading_.as(false);
     disposables.splice(0).forEach((unlisten) => {

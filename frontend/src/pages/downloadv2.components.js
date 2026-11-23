@@ -541,8 +541,8 @@ function DownloadV2AudioAction(props) {
   const ready_ = computed(state_, (state) => state.is_completed);
   const label_ = computed(job_, (job) => {
     if (!ready_.value) return "视频还没下载完成";
-    if (job === "loading") return "提取中";
-    if (job === "ready") return "下载音频";
+    if (job === "loading") return "分离中";
+    if (job === "ready") return "音频已就绪";
     return "音频提取";
   });
   return View(
@@ -1694,6 +1694,107 @@ export function DownloadV2TranscriptDialog(props) {
   );
 }
 
+function AudioStemRow(props) {
+  const { store: vm$, kind, label, hint, button } = props;
+  const ready_ = computed(vm$.state.audio_stems, (stems) =>
+    Boolean(stems && String(stems[kind] || "").trim()),
+  );
+  return View(
+    {
+      class: computed(ready_, (ready) =>
+        ["dl-page-audio-stem-row", ready ? "is-ready" : ""].filter(Boolean).join(" "),
+      ),
+      attributes: { n: `download-audio-stem-${kind}` },
+    },
+    [
+      View({ class: "dl-page-audio-stem-copy" }, [
+        View({ class: "dl-page-audio-stem-label" }, [label]),
+        View({ class: "dl-page-audio-stem-hint" }, [hint]),
+      ]),
+      Button(
+        {
+          store: button,
+          attributes: { n: `download-audio-stem-${kind}-btn` },
+        },
+        ["下载"],
+      ),
+    ],
+  );
+}
+
+export function DownloadV2AudioDialog(props) {
+  const vm$ = props.store;
+  return Dialog(
+    {
+      store: vm$.ui.audioDialog$,
+      class: "dl-page-audio-dialog",
+      attributes: { n: "download-audio-dialog" },
+    },
+    () => [
+      DownloadV2DialogHeading({
+        title: vm$.state.audio_title,
+        description: vm$.state.audio_message,
+      }),
+      DialogBody(
+        {
+          class: "dl-page-audio-body",
+          attributes: { n: "download-audio-body" },
+        },
+        [
+          View(
+            {
+              class: "dl-page-audio-stem-list",
+              attributes: { n: "download-audio-stem-list" },
+            },
+            [
+              AudioStemRow({
+                store: vm$,
+                kind: "original",
+                label: "原音",
+                hint: "完整混音（人声 + 配乐）",
+                button: vm$.ui.btn_audio_original$,
+              }),
+              AudioStemRow({
+                store: vm$,
+                kind: "vocals",
+                label: "人声",
+                hint: "干声 / 口播",
+                button: vm$.ui.btn_audio_vocals$,
+              }),
+              AudioStemRow({
+                store: vm$,
+                kind: "music",
+                label: "配乐 + 环境声",
+                hint: "BGM、音效、环境音",
+                button: vm$.ui.btn_audio_music$,
+              }),
+            ],
+          ),
+          View(
+            {
+              class: "dl-page-transcript-actions",
+              attributes: { n: "download-audio-actions" },
+            },
+            [
+              Button(
+                {
+                  store: vm$.ui.btn_audio_rerun$,
+                  attributes: { n: "download-audio-rerun" },
+                },
+                [
+                  computed(vm$.state.audio_action_label, (label) =>
+                    label || "开始分离",
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    ],
+  );
+}
+
 function WhiteModelSlider(props) {
   const value_ = props.value;
   let unlisten = null;
@@ -2083,9 +2184,9 @@ function RemakeCutStrip(props) {
         {
           type: "button",
           class: computed(vm$.state.remake_cut_step, (step) =>
-            Number(step) === 10
-              ? "white-model-detail-option"
-              : "white-model-detail-option is-active",
+            Number(step) === 5
+              ? "white-model-detail-option is-active"
+              : "white-model-detail-option",
           ),
           attributes: {
             type: "button",
@@ -2118,6 +2219,26 @@ function RemakeCutStrip(props) {
           },
         },
         ["10秒"],
+      ),
+      View(
+        {
+          type: "button",
+          class: computed(vm$.state.remake_cut_step, (step) =>
+            Number(step) === 15
+              ? "white-model-detail-option is-active"
+              : "white-model-detail-option",
+          ),
+          attributes: {
+            type: "button",
+            disabled: computed(vm$.state.remake_cut_busy, (busy) =>
+              busy ? "disabled" : undefined,
+            ),
+          },
+          onClick() {
+            vm$.methods.pickRemakeCutStep(15);
+          },
+        },
+        ["15秒"],
       ),
       View(
         {
